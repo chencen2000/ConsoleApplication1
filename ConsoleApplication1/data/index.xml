@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<atv>
+  <body>
+    <scroller id="com.sample.movie-shelf">
+      <items>
+        <collectionDivider alignment="left" accessibilityLabel="Online Resource">
+          <title>Online Resource</title>
+        </collectionDivider>
+          <shelf id="shelf_1" columnCount="5">
+          <sctions>
+            <shelfSection>
+              <items>
+                <moviePoster id="shelf_item_1" accessibilityLabel="Apple Trailers" onSelect="atv.loadURL('http://23.61.195.130/appletv/index.xml');" onPlay="atv.loadURL('http://23.61.195.130/appletv/index.xml');">
+                  <image>http://trailers.apple.com/appletv/images/promos/IM3_300x151_20121022212002.jpg</image>
+                  <defaultImage>resource://16X9.png</defaultImage>
+                </moviePoster>
+                <moviePoster id="shelf_item_2" accessibilityLabel="TT Site" onSelect="atv.loadURL(' http://210.129.145.150:8000/index.xml');" onPlay="atv.loadURL(' http://210.129.145.150:8000/index.xml');">
+                  <image>http://trailers.apple.com/appletv/images/promos/IM3_300x151_20121022212002.jpg</image>
+                  <defaultImage>resource://16X9.png</defaultImage>
+                </moviePoster>
+              </items>
+            </shelfSection>
+          </sctions>
+        </shelf>
+      </items>
+    </scroller>
+  </body>
+</atv>
