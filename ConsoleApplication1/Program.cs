@@ -8,6 +8,10 @@ namespace ConsoleApplication1
 {
     class Program
     {
+        public static void logIt(String msg)
+        {
+            System.Diagnostics.Trace.WriteLine(msg);
+        }
         static void Main(string[] args)
         {
             capImage.main(null);
