@@ -25,14 +25,41 @@ namespace ConsoleApplication1
     {
         public static void main(System.Collections.Specialized.StringDictionary args)
         {
-            Bitmap f1 = smart_rotate_cop(@"C:\Users\qa\Desktop\picture\save_001.jpg");
-            Bitmap f2 = smart_rotate_cop(@"C:\Users\qa\Desktop\picture\save_00.jpg");
-            f1.Save("temp_1.jpg");
-            f2.Save("temp_2.jpg");
+            Bitmap f1 = ImageDecoder.DecodeFromFile(@"C:\Users\qa\Desktop\picture\save_10.jpg");
+            ConservativeSmoothing s_filter = new ConservativeSmoothing();
+            s_filter.ApplyInPlace(f1);
+            Blur b_filter = new Blur();
+            b_filter.ApplyInPlace(f1);
+            EuclideanColorFiltering filter = new EuclideanColorFiltering();
+            // set center colol and radius
+            //filter.CenterColor = new RGB(81, 140, 220);
+            filter.CenterColor = new RGB(91, 181, 190);
+            filter.Radius = 50;
+            // apply the filter
+            filter.ApplyInPlace(f1);
+            f1.Save("temp.jpg");
+            //
+            ExtractBiggestBlob eb_filter = new ExtractBiggestBlob();
+            Bitmap biggestBlobsImage = eb_filter.Apply(f1);
+            biggestBlobsImage.Save("temp_1.jpg");
+        }
+        public static void main_6(System.Collections.Specialized.StringDictionary args)
+        {
+            Bitmap f1 = ImageDecoder.DecodeFromFile(@"C:\Users\qa\Desktop\picture\save_10.jpg");
+            Bitmap f2 = ImageDecoder.DecodeFromFile(@"C:\Users\qa\Desktop\picture\save_12.jpg");
+            //Bitmap f1 = smart_rotate_cop(@"C:\Users\qa\Desktop\picture\save_10.jpg");
+            //Bitmap f2 = smart_rotate_cop(@"C:\Users\qa\Desktop\picture\save_11.jpg");
+            //f1.Save("temp_1.jpg");
+            //f2.Save("temp_2.jpg");
             Subtract filter = new Subtract(f1);
             Bitmap resultImage = filter.Apply(f2);
-            Image<Bgr, Byte> imageCV = new Image<Bgr, byte>(resultImage);
-            ImageViewer.Show(imageCV, "b");
+            //Image<Bgr, Byte> imageCV = new Image<Bgr, byte>(resultImage);
+            //ImageViewer.Show(imageCV, "b");
+            resultImage.Save("temp.jpg");
+            ThresholdedDifference td_filter = new ThresholdedDifference(60);
+            td_filter.OverlayImage = f1;
+            Bitmap r = filter.Apply(f2);
+            r.Save("temp_r.jpg");
         }
         public static void main_4(System.Collections.Specialized.StringDictionary args)
         {
@@ -311,7 +338,7 @@ namespace ConsoleApplication1
             }
             return copped;
         }
-        public static void main_6(System.Collections.Specialized.StringDictionary args)
+        public static void main_7(System.Collections.Specialized.StringDictionary args)
         {
             Bitmap icon = ImageDecoder.DecodeFromFile(@"C:\Users\qa\Desktop\picture\iphone_icon\tap_1_icon.jpg");
             Bitmap image = ImageDecoder.DecodeFromFile(@"C:\Users\qa\Desktop\picture\save_07.jpg");
