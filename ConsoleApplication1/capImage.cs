@@ -25,23 +25,113 @@ namespace ConsoleApplication1
     {
         public static void main(System.Collections.Specialized.StringDictionary args)
         {
-            Bitmap f1 = ImageDecoder.DecodeFromFile(@"C:\Users\qa\Desktop\picture\save_10.jpg");
-            ConservativeSmoothing s_filter = new ConservativeSmoothing();
-            s_filter.ApplyInPlace(f1);
-            Blur b_filter = new Blur();
-            b_filter.ApplyInPlace(f1);
-            EuclideanColorFiltering filter = new EuclideanColorFiltering();
-            // set center colol and radius
-            //filter.CenterColor = new RGB(81, 140, 220);
-            filter.CenterColor = new RGB(91, 181, 190);
-            filter.Radius = 50;
-            // apply the filter
-            filter.ApplyInPlace(f1);
-            f1.Save("temp.jpg");
-            //
-            ExtractBiggestBlob eb_filter = new ExtractBiggestBlob();
-            Bitmap biggestBlobsImage = eb_filter.Apply(f1);
-            biggestBlobsImage.Save("temp_1.jpg");
+            Bitmap b1 = ImageDecoder.DecodeFromFile(@"C:\Users\qa\Desktop\picture\iphone_icon\scoll_down_selected_icon.jpg");
+            if (true)
+            {
+                Grayscale g_filter = new Grayscale(0.2125, 0.7154, 0.0721);
+                Bitmap b1_g = g_filter.Apply(b1);
+                Threshold t_filter = new Threshold(180);
+                t_filter.ApplyInPlace(b1_g);
+                Invert filter = new Invert();
+                filter.ApplyInPlace(b1_g);
+                b1_g.Save("temp_1.jpg");
+                
+                BlobCounter blobCounter = new BlobCounter();
+                blobCounter.BlobsFilter = null;
+                blobCounter.FilterBlobs = true;
+                blobCounter.MaxWidth = b1_g.Width - 10;
+                blobCounter.MaxHeight = b1_g.Height - 10;
+                blobCounter.MinHeight = 2;
+                blobCounter.MinWidth = 2;
+                blobCounter.ObjectsOrder = ObjectsOrder.Area;
+                blobCounter.ProcessImage(b1_g);
+                Blob[] blobs = blobCounter.GetObjectsInformation();
+                // blobs shoule be 2. one is a rectangle, another is an arrow.
+                if (blobs.Length == 2)
+                {
+                    Blob r_blob = blobs[0];
+                    List<IntPoint> r_edgePoints = blobCounter.GetBlobsEdgePoints(blobs[0]);
+                    Blob a_blob = blobs[1];
+                    List<IntPoint> a_edgePoints = blobCounter.GetBlobsEdgePoints(blobs[1]);
+                    SimpleShapeChecker shapeChecker = new SimpleShapeChecker();
+                    List<IntPoint> r_corners;
+                    if (shapeChecker.IsQuadrilateral(r_edgePoints, out r_corners))
+                    {
+                        var v = shapeChecker.CheckShapeType(r_edgePoints);
+                        var v1 = shapeChecker.CheckPolygonSubType(r_corners);
+                        var v2 = shapeChecker.CheckShapeType(a_edgePoints);
+                        int x = (int)(0.05 * r_blob.Rectangle.Width);
+                        int y = (int)(0.5 * r_blob.Rectangle.Height);
+                        Rectangle r = new Rectangle(x + r_blob.Rectangle.X, y + r_blob.Rectangle.Y, r_blob.Rectangle.Width - x - x, r_blob.Rectangle.Height - y);
+                        if (r.Contains(a_blob.Rectangle))
+                        {
+                            Program.logIt(string.Format("{0} in {1}", a_blob.Rectangle, r));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Size ns = new Size(46, 46);
+                int x = (b1.Width - ns.Width) / 2;
+                int y = (b1.Height - ns.Height) / 2;
+                Crop c1 = new Crop(new Rectangle(x, y, ns.Width, ns.Height));
+                Bitmap b11 = c1.Apply(b1);
+                b11.Save("temp_1.jpg");
+                Grayscale g_filter = new Grayscale(0.2125, 0.7154, 0.0721);
+                Bitmap b12 = g_filter.Apply(b11);
+                b12.Save("temp_2.jpg");
+                Threshold t_filter = new Threshold(180);
+                t_filter.ApplyInPlace(b12);
+                Rectangle r_middle_low = new Rectangle(10, b12.Height / 2, b12.Width - 20, b12.Height / 2);
+                Invert filter = new Invert();
+                filter.ApplyInPlace(b12);
+                b12.Save("temp_2.jpg");
+                BlobCounter blobCounter = new BlobCounter();
+                blobCounter.BlobsFilter = null;
+                blobCounter.FilterBlobs = true;
+                blobCounter.MinHeight = 2;
+                blobCounter.MinWidth = 2;
+                blobCounter.ObjectsOrder = ObjectsOrder.Area;
+                blobCounter.ProcessImage(b12);
+                Blob[] blobs = blobCounter.GetObjectsInformation();
+                SimpleShapeChecker shapeChecker = new SimpleShapeChecker();
+                for (int i = 0; i < blobs.Length; i++)
+                {
+                    List<IntPoint> edgePoints = blobCounter.GetBlobsEdgePoints(blobs[i]);
+                    if (edgePoints.Count > 4)
+                    {
+                        bool isq = shapeChecker.IsQuadrilateral(edgePoints);
+                        bool ita = shapeChecker.IsTriangle(edgePoints);
+                        bool in_middle_low = r_middle_low.Contains(blobs[i].Rectangle);
+                        List<IntPoint> cs = PointsCloud.FindQuadrilateralCorners(edgePoints);
+                        if (!isq)
+                        {
+                            using (Graphics g = Graphics.FromImage(b11))
+                            {
+                                g.DrawRectangle(new Pen(Color.Blue, 1), r_middle_low);
+                                g.DrawRectangle(new Pen(Color.Red, 1), blobs[i].Rectangle);
+                            }
+                        }
+                    }
+                }
+                b11.Save("temp_1.jpg");
+            }
+            /*
+            SusanCornersDetector scd = new SusanCornersDetector();
+            scd.DifferenceThreshold = 33;
+            scd.GeometricalThreshold = 10;
+            List<IntPoint> corners = scd.ProcessImage(b12);
+            SolidBrush aBrush = new SolidBrush(Color.Red);
+            foreach (IntPoint p in corners)
+            {
+                using (Graphics g = Graphics.FromImage(b11))
+                {
+                    g.FillRectangle(aBrush, p.X, p.Y, 1, 1);
+                }
+            }
+            b11.Save("temp.jpg");
+            */
         }
         public static void main_6(System.Collections.Specialized.StringDictionary args)
         {
