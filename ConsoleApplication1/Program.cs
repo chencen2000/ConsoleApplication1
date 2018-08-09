@@ -14,7 +14,40 @@ namespace ConsoleApplication1
         }
         static void Main(string[] args)
         {
-            capImage.main(null);
+            double d = 2.5f;
+            byte[] b = BitConverter.GetBytes(d);
+            string s = Convert.ToBase64String(b);
+
+            double[][] inputs =
+{
+    // The first two are from class 0
+    new double[] { -5, -2, -1 },
+    new double[] { -5, -5, -6 },
+
+    // The next four are from class 1
+    new double[] {  2,  1,  1 },
+    new double[] {  1,  1,  2 },
+    new double[] {  1,  2,  2 },
+    new double[] {  3,  1,  2 },
+
+    // The last three are from class 2
+    new double[] { 11,  5,  4 },
+    new double[] { 15,  5,  6 },
+    new double[] { 10,  5,  6 },
+};
+
+
+            System.Collections.Generic.Dictionary<string, object> data = new Dictionary<string, object>();
+            //foreach(var a in inputs)
+            //{
+
+            //}
+            data.Add("good", inputs);
+            System.Web.Script.Serialization.JavaScriptSerializer jss = new System.Web.Script.Serialization.JavaScriptSerializer();
+            s = jss.Serialize(data);
+
+            System.Collections.Generic.Dictionary<string, object> d1 = jss.Deserialize<System.Collections.Generic.Dictionary<string, object>>(s);
+            //capImage.main(null);
         }
         static void Main1(string[] args)
         {
