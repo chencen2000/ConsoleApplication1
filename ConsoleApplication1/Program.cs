@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -15,24 +13,6 @@ namespace ConsoleApplication1
             System.Diagnostics.Trace.WriteLine(msg);
         }
         static void Main(string[] args)
-        {
-            // test
-            /*
-            try
-            {
-                WebRequest request = WebRequest.Create("https://raw.githubusercontent.com/chencen2000/powershellscript/master/test.xml");
-                WebResponse response = request.GetResponse();
-                Stream dataStream = response.GetResponseStream();
-                StreamReader reader = new StreamReader(dataStream);
-                String s = reader.ReadToEnd();
-                System.Console.WriteLine(s);
-                reader.Close();
-                response.Close();
-            }
-            catch (Exception) { }
-            */
-        }
-        static void Main2(string[] args)
         {
             double d = 2.5f;
             byte[] b = BitConverter.GetBytes(d);
