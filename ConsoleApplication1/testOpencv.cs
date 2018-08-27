@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -232,12 +233,13 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            //pre_process();
-            extra_icon();
+            //check_image_similarity();
+            pre_process();
+            //extra_icon();
             //find_focused_item();
             //test_3();
             //test_1();
-            //test_2();
+            //test();
             //test();
             //test_surf();
             //Image<Bgra, byte> img1 = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
@@ -246,41 +248,100 @@ namespace ConsoleApplication1
             //Mat m = DrawMatches.Draw(img2.Mat, img1.Mat, out l);
             //m.Save("temp_1.jpg");
             //find_focused_menu();
+            //Image<Bgra, byte> source = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\WIN_20180822_11_29_39_Pro.jpg");
+            //source.Rotate(-2.3, new Bgra(0, 0, 0, 255), false).Save("temp_1.jpg");
+            //source.Save("temp_1.jpg");
+            //LineSegment2D v1 = new LineSegment2D(new Point(100, 100), new Point(100, 1000));
+            //LineSegment2D v2 = new LineSegment2D(new Point(100, 1000), new Point(100, 100));
+            //LineSegment2D v3 = new LineSegment2D(new Point(100, 100), new Point(1000, 100));
+            //if (v1.Direction.X < 0 || v1.Direction.Y < 0)
+            //{
+            //    Point p1 = v1.P1;
+            //    Point p2 = v1.P2;
+            //    v1 = new LineSegment2D(p2, p1);
+            //}
+            //double a = v1.GetExteriorAngleDegree(v3);
+            //a = v2.GetExteriorAngleDegree(v3);
+        }
+        static void check_image_similarity()
+        {
+            Mat b1 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_06.jpg");
+            Mat b2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_10.jpg");
+            Mat s1 = new Mat();
+            CvInvoke.AbsDiff(b1, b2, s1);
+            Mat s1f = new Mat();
+            s1.ConvertTo(s1f, DepthType.Cv32F);
+            CvInvoke.Multiply(s1f, s1f, s1f);
+            MCvScalar sum = CvInvoke.Sum(s1f);
+            double sse = sum.V0 + sum.V1 + sum.V2;
+            double mse = sse / ((double)b1.NumberOfChannels * b1.Total.ToInt32());
+            double psnr = 10.0 * Math.Log10((255 * 255) / mse);
+            Program.logIt(string.Format("{0}", psnr));
         }
         static void pre_process()
         {
-            Image<Bgra, byte> source = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\test_01.jpg");
+            Image<Bgra, byte> source = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\save_100.jpg");
             UMat uimage = new UMat();
             CvInvoke.CvtColor(source, uimage, ColorConversion.Bgr2Gray);
             UMat pyrDown = new UMat();
             CvInvoke.PyrDown(uimage, pyrDown);
             CvInvoke.PyrUp(pyrDown, uimage);
+            //CvInvoke.Threshold(uimage, pyrDown, 100, 255, ThresholdType.Binary);
+            //uimage = pyrDown;
             double cannyThreshold = 180.0;
             double cannyThresholdLinking = 120.0;
             UMat cannyEdges = new UMat();
             CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThresholdLinking);
-            //cannyEdges.Save("temp_1.jpg");
+            CvInvoke.GaussianBlur(cannyEdges, uimage, new Size(5, 5), 0);
+            uimage.Save("temp_1.jpg");
 
+            Mat disp = new Mat();
+            CvInvoke.CvtColor(cannyEdges, disp, ColorConversion.Gray2Bgr);
             Image<Bgra, byte> rotated = null;
             {
                 LineSegment2D[] lines = CvInvoke.HoughLinesP(
-                   cannyEdges,
+                   cannyEdges, //cannyEdges,
                    1, //Distance resolution in pixel-related units
                    Math.PI / 180.0, //Angle resolution measured in radians.
                    20, //threshold
-                   100, //min Line width
+                   150, //min Line width
                    10); //gap between lines
                 LineSegment2D vl = new LineSegment2D(new Point(100, 100), new Point(100, 1000));
-                Matrix<float> angles = new Matrix<float>(lines.Length, 1);
+                //Matrix<float> angles = new Matrix<float>(lines.Length, 1);
+                List<double> all_a= new List<double>();
+                double ratio = 1.0;
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    //source.Draw(lines[i], new Bgra(0, 0, 255, 255), 1);
+                    CvInvoke.Line(disp, lines[i].P1, lines[i].P2, new MCvScalar(0, 0, 255));
+                    //.Draw(lines[i], new Bgra(0, 0, 255, 255), 1);
+                    int d_y = (lines[i].P1.Y - lines[i].P2.Y);
+                    int d_x = (lines[i].P1.X - lines[i].P2.X);
+                    double k = (double)d_y / d_x;
+                    double t = Math.Abs(k);
                     double a = vl.GetExteriorAngleDegree(lines[i]);
-                    angles[i, 0] = Convert.ToSingle(a);
+                    a = Math.Atan(t) * (180 / Math.PI);
+                    if (a > 45.0)
+                    {
+                        a = 90.0 - a;
+                        if (k > 0) ratio = 1.0;
+                        else ratio = -1.0;
+                    }
+                    else
+                    {
+                        if (k > 0) ratio = -1.0;
+                        else ratio = 1.0;
+                    }
+                    //angles[i, 0] = Convert.ToSingle(a);
+                    all_a.Add(a);
                     Program.logIt(string.Format("{0}-{1}, {3} len={2}", lines[i].P1, lines[i].P2, lines[i].Length, a));
                 }
+                //float af = 0.0f;
+                double af = all_a.Average();
+                rotated = source.Rotate(af * ratio, new Bgra(), true);
+                rotated.Save("temp_1.jpg");
                 //source.Save("temp_2.jpg");
                 //source.Rotate(0.95f, new Bgra(), true).Save("temp_3.jpg");
+                /*
                 MCvTermCriteria term = new MCvTermCriteria();
                 Matrix<int> label = new Matrix<int>(lines.Length, 1);
                 CvInvoke.Kmeans(angles, 2, label, term, 2, KMeansInitType.RandomCenters);
@@ -301,8 +362,10 @@ namespace ConsoleApplication1
                 //CvInvoke.WaitKey(0);
                 //CvInvoke.DestroyAllWindows();
                 rotated.Save("temp_1.jpg");
+                */
             }
-
+            disp.Save("temp_0.jpg");
+            return;
             // 
             if (rotated != null)
             {
@@ -490,84 +553,31 @@ namespace ConsoleApplication1
         }
         static void test_3()
         {
-            Image<Bgra, byte> source = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\save_10.jpg");
-            UMat uimage = new UMat();
-            CvInvoke.CvtColor(source, uimage, ColorConversion.Bgr2Gray);
-            UMat pyrDown = new UMat();
-            CvInvoke.PyrDown(uimage, pyrDown);
-            CvInvoke.PyrUp(pyrDown, uimage);
-            double cannyThreshold = 180.0;
-            double cannyThresholdLinking = 120.0;
-            UMat cannyEdges = new UMat();
-            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThresholdLinking);
-            cannyEdges.Save("temp_1.jpg");
+            Image<Bgr, byte> img1 = new Image<Bgr, byte>(@"C:\Users\qa\Desktop\picture\scroll_lect.jpg");
+            Image<Gray, byte> g = img1.Convert<Gray, byte>();
+            g = g.ThresholdBinary(new Gray(127), new Gray(255));
+            g.Save("temp_1.jpg");
+            MCvMoments m = g.GetMoments(true);
 
-            List<Rectangle> rlist = new List<Rectangle>();
-            using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
+            CvInvoke.FindContours(g, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+            int count = contours.Size;
+            for(int i=0; i < count; i++)
             {
-                CvInvoke.FindContours(cannyEdges, contours, null, RetrType.List, ChainApproxMethod.ChainApproxSimple);
-                int count = contours.Size;
-                for (int i = 0; i < count; i++)
-                {
-                    using (VectorOfPoint contour = contours[i])
-                    using (VectorOfPoint approxContour = new VectorOfPoint())
-                    {
-                        CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.05, true);
-                        if (CvInvoke.ContourArea(approxContour, false) > 250) //only consider contours with area greater than 250
-                        {
-                            //CvInvoke.DrawContours(source, contours, i, new MCvScalar(255, 0, 255, 255));
-                            //CvInvoke.Imshow("a", source);
-                            //CvInvoke.WaitKey(0);
-                            //CvInvoke.DestroyAllWindows();
-
-                            if (approxContour.Size == 4) //The contour has 4 vertices.
-                            {
-                                #region determine if all the angles in the contour are within [80, 100] degree
-                                bool isRectangle = true;
-                                Point[] pts = approxContour.ToArray();
-                                LineSegment2D[] edges = PointCollection.PolyLine(pts, true);
-
-                                
-                                for (int j = 0; j < edges.Length; j++)
-                                {
-                                    double angle = Math.Abs(
-                                       edges[(j + 1) % edges.Length].GetExteriorAngleDegree(edges[j]));
-                                    if (angle < 80 || angle > 100)
-                                    {
-                                        isRectangle = false;
-                                        break;
-                                    }
-                                }
-                                
-                                #endregion
-                                if (isRectangle)
-                                {
-                                    Rectangle r = CvInvoke.MinAreaRect(approxContour).MinAreaRect();
-                                    source.Draw(r, new Bgra(255, 0, 0, 255));
-                                    rlist.Add(r);
-                                }
-                            }
-                        }
-                    }
-                }
+                double a = CvInvoke.ContourArea(contours[i]);
+                bool b = CvInvoke.IsContourConvex(contours[i]);
             }
-            source.Save("temp_0.jpg");
-
-            // 
-            List<int> hlist = new List<int>();
-            List<int> wlist = new List<int>();
-            for (int i=0; i<rlist.Count; i++)
+            Mat h = new Mat();
+            CvInvoke.FindContours(g, contours, h, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
+            Matrix<Int32> he = new Matrix<int>(h.Rows, h.Cols, h.NumberOfChannels);
+            h.CopyTo(he);
+            count = contours.Size;
+            for (int i = 0; i < count; i++)
             {
-                Program.logIt(string.Format("{0}", rlist[i]));
-                hlist.Add(rlist[i].Height);
-                wlist.Add(rlist[i].Width);
+                VectorOfPoint ps = contours[i];
+                double a = CvInvoke.ContourArea(contours[i]);
+                bool b = CvInvoke.IsContourConvex(contours[i]);
             }
-            hlist.Sort();
-            wlist.Sort();
-            int pos = hlist.Count / 2 + ((hlist.Count % 2) == 1 ? 1 : 0);
-            int mh = hlist[pos];
-            pos = wlist.Count / 2 + ((wlist.Count % 2) == 1 ? 1 : 0);
-            int mw = wlist[pos];
         }
         static void test_surf()
         {
@@ -621,117 +631,90 @@ namespace ConsoleApplication1
             }
 
         }
+        
         static void test()
         {
-            List<Rectangle> ret = new List<Rectangle>();
-            Image<Bgr, byte> img1 = new Image<Bgr, byte>(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
-            UMat uimage = new UMat();
-            CvInvoke.CvtColor(img1, uimage, ColorConversion.Bgr2Gray);
-            UMat pyrDown = new UMat();
-            CvInvoke.PyrDown(uimage, pyrDown);
-            CvInvoke.PyrUp(pyrDown, uimage);
-            pyrDown = (uimage.ToImage<Gray, Byte>().ThresholdBinary(new Gray(200), new Gray(255))).ToUMat();
-            uimage = pyrDown;
-            uimage.Save("temp_1.jpg");
-            double cannyThreshold = 180.0;
-            double circleAccumulatorThreshold = 120;
-            double cannyThresholdLinking = 120.0;
-            UMat cannyEdges = new UMat();
-            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThresholdLinking);
-            cannyEdges.Save("temp_2.jpg");
-            CircleF[] circles = CvInvoke.HoughCircles(cannyEdges, HoughType.Gradient, 2.0, 20.0, cannyThreshold, circleAccumulatorThreshold, 5);
+            Image<Bgr, byte> img1 = new Image<Bgr, byte>(@"C:\Users\qa\Desktop\picture\scroll_lect.jpg");
+            Image<Gray, byte> g = img1.Convert<Gray, byte>();
+            //Mat c = new Mat();
+            //CvInvoke.CornerHarris(g, c, 2);
+            //Image<Gray, float> g1 = c.ToImage<Gray, float>();
+            //g1.Dilate(1);
+            ////CvInvoke.Dilate(c,g1,IntPtr.Zero, new Point(-1,-1), 1, BorderType.Default, )
+            //double maxv =0.0;
+            //double minv =0.0;
+            //Point maxP = new Point();
+            //Point minP = new Point();
+            //CvInvoke.MinMaxLoc(g1, ref minv, ref maxv, ref maxP, ref minP);
+
+            //CvInvoke.Threshold(g1, g, 0.01* maxv, 255.0, ThresholdType.BinaryInv);
+            //g.Save("temp_1.jpg");
+            //CvInvoke.Imshow("a", g);
+            //CvInvoke.WaitKey(0);
+            //CvInvoke.DestroyAllWindows();
+            g = g.ThresholdBinary(new Gray(127), new Gray(255));
+            //CvInvoke.Imshow("a", g);
+            //CvInvoke.WaitKey(0);
+            //CvInvoke.DestroyAllWindows();
+            MCvMoments m = g.GetMoments(true);
 
             using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
             {
-                CvInvoke.FindContours(cannyEdges, contours, null, RetrType.List, ChainApproxMethod.ChainApproxSimple);
+                Mat hier = new Mat();
+                CvInvoke.FindContours(g, contours, hier, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
+                //Image<Gray, Emgu.CV.CvEnum.DepthType.Cv32F> h = hier.ToImage<Gray, Emgu.CV.CvEnum.DepthType.Cv32S>();
+                //Image<Bgra, byte> h = hier.ToImage<Bgra, byte>();
+                Matrix<Int32> mh = new Matrix<Int32>(hier.Rows,hier.Cols,hier.NumberOfChannels);
+                hier.CopyTo(mh);
+
                 int count = contours.Size;
+                int pos = 0;
+                int next = -1;
+                int pre = -1;
+                int first_child = -1;
+                int parent = -1;
                 for (int i = 0; i < count; i++)
                 {
-                    using (VectorOfPoint contour = contours[i])
-                    using (VectorOfPoint approxContour = new VectorOfPoint())
-                    {
-                        CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.05, true);
-                        double a = CvInvoke.ContourArea(approxContour, false);
-                        if (a > 900 && approxContour.Size==4)
-                        {
-                            img1.Draw(approxContour.ToArray(), new Bgr(Color.Brown));
-                            ret.Add((CvInvoke.MinAreaRect(approxContour)).MinAreaRect());
-                        }
-                    }
+                    next = mh.Data[0, pos++];
+                    pre = mh.Data[0, pos++];
+                    first_child = mh.Data[0, pos++];
+                    parent = mh.Data[0, pos++];
+                    VectorOfPoint contour = contours[i];
+                    CvInvoke.DrawContours(img1, contours, i, new MCvScalar(0, 0, 255));
+                    CvInvoke.Imshow("a", img1);
+                    CvInvoke.WaitKey(0);
+                    CvInvoke.DestroyAllWindows();
                 }
             }
-            Rectangle mr = Rectangle.Empty;
-            foreach(Rectangle r in ret)
-            {
-                if (mr.IsEmpty) mr = r;
-                else Rectangle.Union(mr, r);
-            }
-            img1.Draw(mr, new Bgr(Color.Blue));
-            img1.Save("temp_3.jpg");
         }
+
         static void test_2()
         {
-            SVM svm = new SVM();
-            svm.SetKernel(SVM.SvmKernelType.Linear);
-            svm.Type = SVM.SvmType.CSvc;
-            svm.TermCriteria = new MCvTermCriteria(1, 1e-6);
+            Image<Bgr, byte> b1 = new Image<Bgr, byte>(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
+            Image<Bgr, byte> b2 = new Image<Bgr, byte>(@"C:\Users\qa\Desktop\picture\iphone_icon\scroll_left_icon.jpg");
 
-            Image<Gray, float> a = new Image<Gray, float>(2, 4);
-            Image<Gray, int> b = new Image<Gray, int>(4, 1);
-            a[0, 0] = new Gray(400);
-            a[0, 1] = new Gray(30);
-            a[1, 0] = new Gray(255);
-            a[1, 1] = new Gray(10);
-            a[2, 0] = new Gray(350);
-            a[2, 1] = new Gray(255);
-            a[3, 0] = new Gray(10);
-            a[3, 1] = new Gray(501);
-            b[0, 0] = new Gray(1);
-            b[0, 1] = new Gray(-1);
-            b[0, 2] = new Gray(1);
-            b[0, 3] = new Gray(-1);
-            TrainData data = new TrainData(a, Emgu.CV.ML.MlEnum.DataLayoutType.RowSample, b);
-            bool trained = svm.Train(data);
-            Image<Gray, float> sample = new Image<Gray, float>(2, 1);
-            sample[0, 0] = new Gray(400);
-            sample[0, 1] = new Gray(100);
-            float res = svm.Predict(sample);
-
-            
-        }
-        static void test_1()
-        {
-            //Mat img1 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_10.jpg", Emgu.CV.CvEnum.ImreadModes.AnyColor);
-            //Mat img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\iphone_icon\setting_icon.jpg", Emgu.CV.CvEnum.ImreadModes.AnyColor);
-            Image<Bgra, byte> img1 = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
-            Image<Bgra, byte> img2 = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\iphone_icon\scroll_left_icon.jpg");
-
-            Mat homography = null;
-            Mat mask = null;
+            double hessianThresh = 300;
+            //SURF surfCPU = new SURF(hessianThresh);
+            SIFT s = new SIFT();
             VectorOfKeyPoint modelKeyPoints = new VectorOfKeyPoint();
             VectorOfKeyPoint observedKeyPoints = new VectorOfKeyPoint();
-            VectorOfVectorOfDMatch matches = new VectorOfVectorOfDMatch();
-
-            UMat a1 = img1.Mat.GetUMat(AccessType.Read);
-            UMat b1 = img2.Mat.GetUMat(AccessType.Read);
-
-            SURF surf = new SURF(300);
             UMat modelDescriptors = new UMat();
             UMat observedDescriptors = new UMat();
+            //surfCPU.Compute(b2, modelKeyPoints, modelDescriptors);
+            //surfCPU.Compute(b1, observedKeyPoints, observedDescriptors);
+            s.DetectAndCompute(b2, null, modelKeyPoints, modelDescriptors, false);
+            s.DetectAndCompute(b1, null, observedKeyPoints, observedDescriptors, false);
 
-            //surf.DetectAndCompute(b1, null, modelKeyPoints, modelDescriptors, false);
-            surf.DetectRaw(img2, modelKeyPoints);
-            surf.Compute(img2, modelKeyPoints, modelDescriptors);
-            surf.DetectAndCompute(img1, null, observedKeyPoints, observedDescriptors, false);
-
+            VectorOfVectorOfDMatch matches = new VectorOfVectorOfDMatch();
             BFMatcher matcher = new BFMatcher(DistanceType.L2);
             matcher.Add(modelDescriptors);
             matcher.KnnMatch(observedDescriptors, matches, 2, null);
-            mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
+
+            Mat homography = null;
+            Mat mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
             mask.SetTo(new MCvScalar(255));
             Features2DToolbox.VoteForUniqueness(matches, 0.8, mask);
-
-            int Count = CvInvoke.CountNonZero(mask);
+            int Count = CvInvoke.CountNonZero(mask);      //用于寻找模板在图中的位置
             if (Count >= 4)
             {
                 Count = Features2DToolbox.VoteForSizeAndOrientation(modelKeyPoints, observedKeyPoints, matches, mask, 1.5, 20);
@@ -740,28 +723,40 @@ namespace ConsoleApplication1
             }
 
             Mat result = new Mat();
-            Features2DToolbox.DrawMatches(img2, modelKeyPoints, img1, observedKeyPoints,
-                   matches, result, new MCvScalar(255, 255, 255), new MCvScalar(255, 255, 255), mask);
+            Features2DToolbox.DrawMatches(b2, modelKeyPoints, b1, observedKeyPoints, matches, result, new MCvScalar(255, 0, 255), new MCvScalar(0, 255, 255), mask);
+
             if (homography != null)
             {
-                Rectangle rect = new Rectangle(Point.Empty, img2.Size);
+                Rectangle rect = new Rectangle(Point.Empty, b2.Size);
                 PointF[] points = new PointF[]
-                {
+                                {
                   new PointF(rect.Left, rect.Bottom),
                   new PointF(rect.Right, rect.Bottom),
                   new PointF(rect.Right, rect.Top),
                   new PointF(rect.Left, rect.Top)
-                };
+                                };
                 points = CvInvoke.PerspectiveTransform(points, homography);
                 Point[] points2 = Array.ConvertAll<PointF, Point>(points, Point.Round);
-                foreach(Point p in points2)
-                {
-                    Program.logIt(string.Format("{0}", p));
-                }
                 VectorOfPoint vp = new VectorOfPoint(points2);
-                CvInvoke.Polylines(result, vp, true, new MCvScalar(255, 0, 0, 255), 15);
+                CvInvoke.Polylines(result, vp, true, new MCvScalar(255, 0, 0, 255), 2);
             }
-            result.Save("temp_1.jpg");
+
+            CvInvoke.Imshow("a", result);
+            CvInvoke.WaitKey(0);
+            CvInvoke.DestroyAllWindows();
+        }
+        static void test_1()
+        {
+            Mat img = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\WIN_20180822_11_29_39_Pro.jpg");
+            Mat img1 = new Mat();
+            CvInvoke.GaussianBlur(img, img1, new Size(11, 11), 0);
+            //img1.Save("temp_1.jpg");
+            Image<Gray, Byte> uimage = img1.ToImage<Gray, Byte>();
+            double cannyThreshold = 180.0;
+            double cannyThresholdLinking = 120.0;
+            UMat cannyEdges = new UMat();
+            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThresholdLinking);
+
         }
         static float Classify(Image<Bgr, Byte> testImg, string folder)
         {
