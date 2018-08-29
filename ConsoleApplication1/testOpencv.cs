@@ -3,6 +3,7 @@ using Emgu.CV;
 using Emgu.CV.Cuda;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Features2D;
+using Emgu.CV.Flann;
 using Emgu.CV.ML;
 using Emgu.CV.Structure;
 using Emgu.CV.Util;
@@ -82,18 +83,22 @@ namespace ConsoleApplication1
                 UMat uModelImage = modelImage.GetUMat(AccessType.Read);
                 UMat uObservedImage = observedImage.GetUMat(AccessType.Read);
                 {
-                    SURF surfCPU = new SURF(hessianThresh);
+                    ////Brisk surfCPU = new Brisk();
+                    Brisk surfCPU = new Brisk();
+                    //SURF surfCPU = new SURF(hessianThresh);
+                    //Freak surfCPU = new Freak();
+                    //SIFT surfCPU = new SIFT();
                     //extract features from the object image
                     UMat modelDescriptors = new UMat();
-                    //surfCPU.DetectAndCompute(uModelImage, null, modelKeyPoints, modelDescriptors, false);
-                    surfCPU.DetectRaw(modelImage, modelKeyPoints);
-                    surfCPU.Compute(modelImage, modelKeyPoints, modelDescriptors);
+                    surfCPU.DetectAndCompute(modelImage, null, modelKeyPoints, modelDescriptors, false);
+                    //surfCPU.Detect(modelImage, modelKeyPoints);
+                    //surfCPU.Compute(modelImage, modelKeyPoints, modelDescriptors);
 
                     watch = Stopwatch.StartNew();
 
                     // extract features from the observed image
                     UMat observedDescriptors = new UMat();
-                    surfCPU.DetectAndCompute(uObservedImage, null, observedKeyPoints, observedDescriptors, false);
+                    surfCPU.DetectAndCompute(observedImage, null, observedKeyPoints, observedDescriptors, false);
                     BFMatcher matcher = new BFMatcher(DistanceType.L2);
                     matcher.Add(modelDescriptors);
 
@@ -234,7 +239,8 @@ namespace ConsoleApplication1
         static void Main(string[] args)
         {
             //check_image_similarity();
-            pre_process();
+            test_skelton();
+            //pre_process();
             //extra_icon();
             //find_focused_item();
             //test_3();
@@ -687,7 +693,30 @@ namespace ConsoleApplication1
                 }
             }
         }
-
+        static void test_skelton()
+        {
+            Mat m = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\iphone_icon\app_switch_close_1.jpg", ImreadModes.Grayscale);
+            Mat gm = new Mat();
+            double f = CvInvoke.Threshold(m, gm, 0, 255, ThresholdType.Otsu);
+            CvInvoke.BitwiseNot(gm, m);
+            m.Save("temp_1.jpg");
+            Mat element = new Mat();
+            CvInvoke.GetStructuringElement(ElementShape.Cross, new Size(3, 3), new Point(-1, -1));
+            bool done = false;
+            gm = Mat.Ones(m.Rows, m.Cols, DepthType.Cv8U, 1);
+            Mat temp = new Mat();
+            Mat erode = new Mat();
+            do
+            {
+                CvInvoke.Erode(m, erode, element, new Point(-1, -1), 1, BorderType.Constant, new MCvScalar(255));
+                CvInvoke.Dilate(erode, temp, element, new Point(-1, -1), 1, BorderType.Constant, new MCvScalar(255));
+                CvInvoke.Subtract(m, temp, temp);
+                CvInvoke.BitwiseOr(gm, temp, gm);
+                erode.CopyTo(m);
+                done = (CvInvoke.CountNonZero(m) == 0);
+            } while (!done);
+            gm.Save("temp_2.jpg");
+        }
         static void test_2()
         {
             Image<Bgr, byte> b1 = new Image<Bgr, byte>(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
@@ -747,16 +776,27 @@ namespace ConsoleApplication1
         }
         static void test_1()
         {
-            Mat img = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\WIN_20180822_11_29_39_Pro.jpg");
-            Mat img1 = new Mat();
-            CvInvoke.GaussianBlur(img, img1, new Size(11, 11), 0);
-            //img1.Save("temp_1.jpg");
-            Image<Gray, Byte> uimage = img1.ToImage<Gray, Byte>();
-            double cannyThreshold = 180.0;
-            double cannyThresholdLinking = 120.0;
-            UMat cannyEdges = new UMat();
-            CvInvoke.Canny(uimage, cannyEdges, cannyThreshold, cannyThresholdLinking);
+            string s = @"C:\Users\qa\Desktop\picture\iphone_icon\scroll_left_icon.jpg";
+            Mat img = CvInvoke.Imread(s);
+            Mat img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\scroll_lect.jpg");
 
+            MKeyPoint[] kp;
+            //MKeyPoint[] kp = sift.Detect(img);
+            Mat desc = new Mat();
+            //sift.Compute(img, new VectorOfKeyPoint(kp), desc);
+            SIFT surf = new SIFT();
+            //SURF surf = new SURF(400);
+            kp = surf.Detect(img2);
+            desc = new Mat();
+            surf.Compute(img2, new VectorOfKeyPoint(kp), desc);
+
+
+            img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\scroll_lect.jpg");
+            img = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
+            //img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
+            long l;
+            Mat m = DrawMatches.Draw(img2, img, out l);
+            m.Save("temp_1.jpg");
         }
         static float Classify(Image<Bgr, Byte> testImg, string folder)
         {
