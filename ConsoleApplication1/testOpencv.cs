@@ -239,12 +239,12 @@ namespace ConsoleApplication1
         static void Main(string[] args)
         {
             //check_image_similarity();
-            test_skelton();
+            //test_skelton();
             //pre_process();
             //extra_icon();
             //find_focused_item();
             //test_3();
-            //test_1();
+            test_1();
             //test();
             //test();
             //test_surf();
@@ -776,27 +776,11 @@ namespace ConsoleApplication1
         }
         static void test_1()
         {
-            string s = @"C:\Users\qa\Desktop\picture\iphone_icon\scroll_left_icon.jpg";
-            Mat img = CvInvoke.Imread(s);
-            Mat img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\scroll_lect.jpg");
+            Mat img = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_00.jpg");
 
-            MKeyPoint[] kp;
-            //MKeyPoint[] kp = sift.Detect(img);
-            Mat desc = new Mat();
-            //sift.Compute(img, new VectorOfKeyPoint(kp), desc);
-            SIFT surf = new SIFT();
-            //SURF surf = new SURF(400);
-            kp = surf.Detect(img2);
-            desc = new Mat();
-            surf.Compute(img2, new VectorOfKeyPoint(kp), desc);
-
-
-            img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\scroll_lect.jpg");
-            img = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
-            //img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
-            long l;
-            Mat m = DrawMatches.Draw(img2, img, out l);
-            m.Save("temp_1.jpg");
+            CvInvoke.Imshow("a", img);
+            CvInvoke.WaitKey(0);
+            CvInvoke.DestroyAllWindows();
         }
         static float Classify(Image<Bgr, Byte> testImg, string folder)
         {

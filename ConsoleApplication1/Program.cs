@@ -31,6 +31,14 @@ namespace ConsoleApplication1
             }
             catch (Exception) { }
             */
+            try
+            {
+                System.Threading.EventWaitHandle e = System.Threading.EventWaitHandle.OpenExisting("Global\\captureimage");
+                //System.Threading.EventWaitHandle e = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, @"Global\\captureimage");
+                //System.Threading.EventWaitHandle e = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, @"captureimage");
+                e.Set();
+            }
+            catch (Exception ex) { }
         }
         static void Main2(string[] args)
         {
