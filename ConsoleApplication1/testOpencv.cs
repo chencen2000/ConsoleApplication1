@@ -17,6 +17,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Tesseract;
 
 namespace ConsoleApplication1
 {
@@ -238,6 +239,7 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
+            //test_ocr();
             //check_image_similarity();
             //test_skelton();
             //pre_process();
@@ -559,37 +561,27 @@ namespace ConsoleApplication1
         }
         static void test_3()
         {
-            Image<Bgr, byte> img1 = new Image<Bgr, byte>(@"C:\Users\qa\Desktop\picture\scroll_lect.jpg");
-            Image<Gray, byte> g = img1.Convert<Gray, byte>();
-            g = g.ThresholdBinary(new Gray(127), new Gray(255));
-            g.Save("temp_1.jpg");
-            MCvMoments m = g.GetMoments(true);
-
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            CvInvoke.FindContours(g, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
-            int count = contours.Size;
-            for(int i=0; i < count; i++)
-            {
-                double a = CvInvoke.ContourArea(contours[i]);
-                bool b = CvInvoke.IsContourConvex(contours[i]);
-            }
-            Mat h = new Mat();
-            CvInvoke.FindContours(g, contours, h, RetrType.Tree, ChainApproxMethod.ChainApproxSimple);
-            Matrix<Int32> he = new Matrix<int>(h.Rows, h.Cols, h.NumberOfChannels);
-            h.CopyTo(he);
-            count = contours.Size;
-            for (int i = 0; i < count; i++)
-            {
-                VectorOfPoint ps = contours[i];
-                double a = CvInvoke.ContourArea(contours[i]);
-                bool b = CvInvoke.IsContourConvex(contours[i]);
-            }
+            Mat img1 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_02.jpg");
+            Mat img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_12.jpg");
+            double d = CvInvoke.PSNR(img1, img2);
+            Program.logIt(string.Format("psnr={0}", d));
+            Mat r = new Mat();
+            CvInvoke.MatchTemplate(img2, img1, r, TemplateMatchingType.CcoeffNormed);
+            double minV = 0;
+            double maxV = 0;
+            Point minP = new Point();
+            Point maxP = new Point();
+            CvInvoke.MinMaxLoc(r, ref minV, ref maxV, ref minP, ref maxP);
+            CvInvoke.AbsDiff(img1, img2, r);
+            r.Save("temp_1.jpg");
         }
         static void test_surf()
         {
-            Mat img1 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_10.jpg", Emgu.CV.CvEnum.ImreadModes.Grayscale);
-            Mat img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\iphone_icon\setting_icon.jpg", Emgu.CV.CvEnum.ImreadModes.Grayscale);
-            SURF surf = new SURF(300);
+            Mat img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_01.jpg", Emgu.CV.CvEnum.ImreadModes.Grayscale);
+            Mat img1 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\iphone_icon\setting_icon.jpg", Emgu.CV.CvEnum.ImreadModes.Grayscale);
+            //SURF surf = new SURF(300);
+            SIFT surf = new SIFT();
+            //KAZE surf = new KAZE();
             VectorOfKeyPoint kp1 = new VectorOfKeyPoint();
             VectorOfKeyPoint kp2 = new VectorOfKeyPoint();
             UMat d1 = new UMat();
@@ -600,42 +592,50 @@ namespace ConsoleApplication1
             BFMatcher matcher = new BFMatcher(DistanceType.L2);
             matcher.Add(d1);
             matcher.KnnMatch(d2, matches, 2, null);
-            double max_dist = 0; double min_dist = 100;
-            //-- Quick calculation of max and min distances between keypoints  
+            Mat mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
+            Matrix<Byte> msk = new Matrix<Byte>(matches.Size, 1, 1);
+            mask.SetTo(new MCvScalar(255));
+            msk.SetZero();
+            msk._Not();
+            //for(int i=0; i<matches.Size; i++)
+            //{
+            //    VectorOfDMatch m = matches[i];
+            //    MDMatch m1 = m[0];
+            //    MDMatch m2 = m[1];
+            //}
+            Features2DToolbox.VoteForUniqueness(matches, 0.8, msk.Mat);
+            int onZeroCount = Features2DToolbox.VoteForSizeAndOrientation(kp1, kp2, matches, msk.Mat, 1.5, 1);
             for (int i = 0; i < matches.Size; i++)
             {
-                VectorOfDMatch m = matches[i];
-                if (m.Size > 1)
+                Byte b = msk[i, 0];
+                if (b != 0)
                 {
-                    double dist = m[1].Distance;
-                    if (dist < min_dist) min_dist = dist;
-                    if (dist > max_dist) max_dist = dist;
+                    VectorOfDMatch m = matches[i];
+                    MDMatch m1 = m[0];
+                    MDMatch m2 = m[1];
+                    if (m1.Distance > 0.5 * m2.Distance)
+                        msk[i, 0] = 0;
                 }
             }
-            Program.logIt(string.Format("max={0} min={1}", max_dist, min_dist));
-            //
-            //-- Draw only "good" matches (i.e. whose distance is less than 0.6*max_dist )  
-            //-- PS.- radiusMatch can also be used here.  
-            List<VectorOfDMatch> good_point = new List<VectorOfDMatch>();
-            for (int i = 0; i < matches.Size; i++)
+            Mat result = new Mat();
+            Emgu.CV.Features2D.Features2DToolbox.DrawMatches(img1, kp1, img2, kp2, matches, result, new MCvScalar(255, 0, 0), new MCvScalar(0, 0, 255), msk);
+            result.Save("temp_1.jpg");
+
+            Mat homography = Features2DToolbox.GetHomographyMatrixFromMatchedFeatures(kp1, kp2, matches, mask, 2);
+            PointF[] pts = new PointF[]
+                    {
+                  new PointF(0, 0),
+                  new PointF(img1.Width, 0),
+                  new PointF(img1.Width, img1.Height),
+                  new PointF(0, img1.Height)
+                    };
+            pts = CvInvoke.PerspectiveTransform(pts, homography);
+            Point[] points = Array.ConvertAll<PointF, Point>(pts, Point.Round);
+            using (VectorOfPoint vp = new VectorOfPoint(points))
             {
-                VectorOfDMatch m = matches[i];
-                if (m.Size > 1)
-                {
-                    double dist = m[1].Distance;
-                    if (dist < 0.6 * max_dist)
-                        good_point.Add(m);
-                }
+                CvInvoke.Polylines(result, vp, true, new MCvScalar(255, 0, 0, 255), 5);
             }
-
-            // 
-            List<PointF> obj;
-            List<PointF> scene;
-            for(int i=0; i<good_point.Count; i++)
-            {
-
-            }
-
+            result.Save("temp_2.jpg");
         }
         
         static void test()
@@ -776,11 +776,66 @@ namespace ConsoleApplication1
         }
         static void test_1()
         {
-            Mat img = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_00.jpg");
-
-            CvInvoke.Imshow("a", img);
-            CvInvoke.WaitKey(0);
-            CvInvoke.DestroyAllWindows();
+            Bitmap b1 = new Bitmap(@"C:\Users\qa\Desktop\picture\save_01.jpg");
+            Bitmap b2 = new Bitmap(@"C:\Users\qa\Desktop\picture\save_06.jpg");
+            Bitmap menu = null;
+            {
+                Image<Gray, Byte> bb1 = new Image<Gray, byte>(b1);
+                Image<Gray, Byte> bb2 = new Image<Gray, byte>(b2);
+                Mat diff = new Mat();
+                CvInvoke.AbsDiff(bb1, bb2, diff);
+                diff.Save("temp_1.jpg");
+                Mat tmp = new Mat();
+                CvInvoke.Threshold(diff, tmp, 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
+                tmp.Save("temp_2.jpg");
+                Rectangle ret = Rectangle.Empty;
+                using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+                {
+                    diff = tmp;
+                    CvInvoke.FindContours(diff, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                    int count = contours.Size;
+                    for (int i = 0; i < count; i++)
+                    {
+                        double d = CvInvoke.ContourArea(contours[i]);
+                        if (d > 100.0)
+                        {
+                            Rectangle rect = CvInvoke.BoundingRectangle(contours[i]);
+                            Program.logIt(string.Format("{0}: {1}", d, rect));
+                            if (ret.IsEmpty) ret = rect;
+                            else ret = Rectangle.Union(ret, rect);
+                        }
+                    }
+                }
+                Program.logIt(string.Format("{0}", ret));
+                Image<Bgr, Byte> b = new Image<Bgr, byte>(b2);
+                menu = b.GetSubRect(ret).Bitmap;
+            }
+            if (menu != null)
+            {
+                Image<Gray, Byte> bb1 = new Image<Gray, byte>(menu);
+                Mat tmp = new Mat();
+                CvInvoke.Threshold(bb1, tmp, 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
+                tmp.Save("temp_1.jpg");
+                Rectangle ret = Rectangle.Empty;
+                using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+                {
+                    CvInvoke.FindContours(tmp, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                    int count = contours.Size;
+                    double m = 0.0;
+                    for (int i = 0; i < count; i++)
+                    {
+                        double d = CvInvoke.ContourArea(contours[i]);
+                        if (d > m)
+                        {
+                            m = d;
+                            ret = CvInvoke.BoundingRectangle(contours[i]);
+                            Program.logIt(string.Format("{0}: {1}", d, ret));
+                        }
+                    }
+                }
+                Image<Bgr, Byte> b = new Image<Bgr, byte>(menu);
+                b.GetSubRect(ret).Save("temp_2.jpg");
+            }
         }
         static float Classify(Image<Bgr, Byte> testImg, string folder)
         {
@@ -792,6 +847,16 @@ namespace ConsoleApplication1
             SURF surf = new SURF(300);
 
             return ret;
+        }
+        static void test_ocr()
+        {
+            using (TesseractEngine TE = new TesseractEngine("tessdata", "eng", EngineMode.TesseractOnly))
+            {
+                Bitmap b = new Bitmap(@"C:\Users\qa\Desktop\picture\save_17.jpg");
+                var p = TE.Process(b);
+                string s = p.GetText();
+                s = p.GetHOCRText(0);
+            }
         }
     }
 }

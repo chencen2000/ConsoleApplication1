@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace ConsoleApplication1
 {
@@ -31,14 +32,95 @@ namespace ConsoleApplication1
             }
             catch (Exception) { }
             */
-            try
+            //try
+            //{
+            //    System.Threading.EventWaitHandle e = System.Threading.EventWaitHandle.OpenExisting("Global\\captureimage");
+            //    //System.Threading.EventWaitHandle e = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, @"Global\\captureimage");
+            //    //System.Threading.EventWaitHandle e = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, @"captureimage");
+            //    e.Set();
+            //}
+            //catch (Exception ex) { }
+            test_xml();
+        }
+        static void test_xml()
+        {
+            string s = @"test.xml";
+            bool b = false;
+            if (b)
             {
-                System.Threading.EventWaitHandle e = System.Threading.EventWaitHandle.OpenExisting("Global\\captureimage");
-                //System.Threading.EventWaitHandle e = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, @"Global\\captureimage");
-                //System.Threading.EventWaitHandle e = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, @"captureimage");
-                e.Set();
+                var settings = new XmlWriterSettings();
+                settings.OmitXmlDeclaration = true;
+                settings.Indent = true;
+                using (XmlWriter writer = XmlWriter.Create(s,settings))
+                {
+                    writer.WriteStartDocument();
+                    writer.WriteStartElement("test");
+                    writer.WriteStartElement("img");
+                    writer.WriteAttributeString("id", "img1");
+                    byte[] d = System.IO.File.ReadAllBytes(@"C:\Users\qa\Desktop\picture\save_01.jpg");
+                    writer.WriteBase64(d, 0, d.Length);
+                    writer.WriteEndElement();
+                    writer.WriteEndElement();
+                    writer.WriteEndDocument();
+                    writer.Flush();
+                }
             }
-            catch (Exception ex) { }
+            else
+            {
+                byte[] ret = null;
+                XmlDocument doc = new XmlDocument();
+                doc.Load(s);
+                XmlNode n = doc.DocumentElement.SelectSingleNode("//img[@id='img1']");
+                using(XmlNodeReader r = new XmlNodeReader(n))
+                {
+                    r.MoveToContent();
+                    using (MemoryStream memStream = new MemoryStream())
+                    {
+                        int read = 0;
+                        do
+                        {
+                            byte[] data = new byte[1024 * 64];
+                            read = r.ReadElementContentAsBase64(data, 0, data.Length);
+                            if (read > 0)
+                                memStream.Write(data, 0, data.Length);
+                        } while (read > 0);
+                        ret = memStream.ToArray();
+                    }
+                    r.Close();
+                }
+                /*
+                using (XmlReader xr = XmlReader.Create(s))
+                {
+                    XmlDocument doc = new XmlDocument();
+                    doc.Load(xr);
+                    XmlNode n = doc.DocumentElement["img2"];
+                    XmlNodeReader r = new XmlNodeReader(n);
+                    r.MoveToContent();
+                    //while (r.Read())
+                    {
+                        //if (r.NodeType == XmlNodeType.Text)
+                        {
+                            using (MemoryStream memStream = new MemoryStream())
+                            {
+                                //r.Read();
+                                byte[] data = new byte[10240];
+                                int read = 0;
+                                do
+                                {
+                                    read = r.ReadElementContentAsBase64(data, 0, data.Length);
+                                    memStream.Write(data, 0, data.Length);
+                                } while (read > 0);
+                                FileStream outStream = File.OpenWrite("temp_1.jpg");
+                                memStream.WriteTo(outStream);
+                                outStream.Flush();
+                                outStream.Close();
+                            }
+                        }
+                    }
+                    xr.Close();
+                }
+                */
+            }
         }
         static void Main2(string[] args)
         {
