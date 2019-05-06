@@ -25,6 +25,8 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
+            //test_apple_logo();
+            test();
             //test_ocr();
             //check_image_similarity();
             //test_skelton();
@@ -452,11 +454,62 @@ namespace ConsoleApplication1
         {
             using (TesseractEngine TE = new TesseractEngine("tessdata", "eng", EngineMode.TesseractOnly))
             {
-                Bitmap b = new Bitmap(@"C:\Users\qa\Desktop\picture\save_17.jpg");
+                Bitmap b = new Bitmap(@"C:\test\avia\image_1.bmp");
                 var p = TE.Process(b);
                 string s = p.GetText();
                 s = p.GetHOCRText(0);
             }
+        }
+        static void test()
+        {
+            string src = @"C:\tools\avia\A07- NEW2.4.3.3\Allmodels\AP001\work_station_1\image.bmp";
+            Mat b1 = CvInvoke.Imread(src, ImreadModes.Grayscale);
+            Mat b2 = new Mat();
+            CvInvoke.Rotate(b1, b2, RotateFlags.Rotate90CounterClockwise);
+            b2.Save("temp_1.bmp");
+            Mat b3 = new Mat();
+            CvInvoke.Threshold(b2, b3, 225, 255, ThresholdType.Binary);
+            b3.Save("temp_2.bmp");
+            Emgu.CV.CvInvoke.Erode(b3, b3, null, new Point(-1, -1), 3, Emgu.CV.CvEnum.BorderType.Default, new Emgu.CV.Structure.MCvScalar(0));
+            //Emgu.CV.CvInvoke.Dilate(b3, b3, null, new Point(-1, -1), 7, Emgu.CV.CvEnum.BorderType.Default, new Emgu.CV.Structure.MCvScalar(255));
+            b3.Save("temp_3.bmp");
+            Rectangle ret = Rectangle.Empty;
+            using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+            {
+                CvInvoke.FindContours(b3, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                int count = contours.Size;
+                for (int i = 0; i < count; i++)
+                {
+                    double d = CvInvoke.ContourArea(contours[i]);
+                    if (d > 10000.0)
+                    {
+                        Rectangle rect = CvInvoke.BoundingRectangle(contours[i]);
+                        Program.logIt(string.Format("{0}: {1}", d, rect));
+                        if (ret.IsEmpty) ret = rect;
+                        else ret = Rectangle.Union(ret, rect);
+                    }
+                }
+            }
+
+        }
+        static void test_apple_logo()
+        {
+            Mat b1 = CvInvoke.Imread(@"C:\test\avia\apple_logo.png", ImreadModes.Grayscale);
+            KAZE d = new KAZE();
+            MKeyPoint[] kp1 = d.Detect(b1);
+            Mat desc1 = new Mat();
+            d.Compute(b1, new VectorOfKeyPoint(kp1), desc1);
+
+            Mat b2 = CvInvoke.Imread(@"temp_3.bmp", ImreadModes.Grayscale);
+            MKeyPoint[] kp2 = d.Detect(b2);
+            Mat desc2 = new Mat();
+            d.Compute(b2, new VectorOfKeyPoint(kp2), desc2);
+
+            VectorOfVectorOfDMatch matches = new VectorOfVectorOfDMatch();
+            FlannBasedMatcher fbm = new FlannBasedMatcher(new KdTreeIndexParams(), new SearchParams());
+            fbm.Add(desc1);
+            fbm.KnnMatch(desc2, matches, 2, null);
+
         }
     }
 }
