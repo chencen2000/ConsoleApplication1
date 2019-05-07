@@ -25,8 +25,8 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            //test_apple_logo();
-            test();
+            test_apple_logo();
+            //test();
             //test_ocr();
             //check_image_similarity();
             //test_skelton();
@@ -490,17 +490,20 @@ namespace ConsoleApplication1
                     }
                 }
             }
-
+            Size sz = new Size(b3.Size.Width / 10, b3.Size.Height / 10);
+            CvInvoke.Resize(b3, b2, sz);
+            b2.Save("temp_3.bmp");
         }
         static void test_apple_logo()
         {
-            Mat b1 = CvInvoke.Imread(@"C:\test\avia\apple_logo.png", ImreadModes.Grayscale);
+            Mat b1 = CvInvoke.Imread(@"C:\Tools\avia\images\Apple_logo_1.png", ImreadModes.Grayscale);
+            //SIFT d = new SIFT();
             KAZE d = new KAZE();
             MKeyPoint[] kp1 = d.Detect(b1);
             Mat desc1 = new Mat();
             d.Compute(b1, new VectorOfKeyPoint(kp1), desc1);
 
-            Mat b2 = CvInvoke.Imread(@"temp_3.bmp", ImreadModes.Grayscale);
+            Mat b2 = CvInvoke.Imread(@"temp_2.bmp", ImreadModes.Grayscale);
             MKeyPoint[] kp2 = d.Detect(b2);
             Mat desc2 = new Mat();
             d.Compute(b2, new VectorOfKeyPoint(kp2), desc2);
@@ -510,6 +513,50 @@ namespace ConsoleApplication1
             fbm.Add(desc1);
             fbm.KnnMatch(desc2, matches, 2, null);
 
+            Mat mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
+            mask.SetTo(new MCvScalar(255));
+            Features2DToolbox.VoteForUniqueness(matches, 0.9, mask);
+            int nonZeroCount = CvInvoke.CountNonZero(mask);
+            PointF[] pts = null;
+            {
+                nonZeroCount = Features2DToolbox.VoteForSizeAndOrientation(new VectorOfKeyPoint(kp1), new VectorOfKeyPoint(kp2), matches, mask, 1.5, 1);
+                if (nonZeroCount > 4)
+                {
+                    Mat homography = Features2DToolbox.GetHomographyMatrixFromMatchedFeatures(new VectorOfKeyPoint(kp1),
+                               new VectorOfKeyPoint(kp2), matches, mask, 2);
+                    if (homography != null)
+                    {
+                        Rectangle rect = new Rectangle(Point.Empty, b1.Size);
+                        pts = new PointF[]
+                        {
+                  new PointF(rect.Left, rect.Bottom),
+                  new PointF(rect.Right, rect.Bottom),
+                  new PointF(rect.Right, rect.Top),
+                  new PointF(rect.Left, rect.Top)
+                        };
+                        pts = CvInvoke.PerspectiveTransform(pts, homography);
+
+                        //Point[] points = Array.ConvertAll<PointF, Point>(pts, Point.Round);
+                        //using (VectorOfPoint vp = new VectorOfPoint(points))
+                        //{
+                        //    CvInvoke.Polylines(result, vp, true, new MCvScalar(255, 0, 0, 255), 5);
+                        //}
+
+                    }
+                }
+            }
+
+            Mat result = new Mat();
+            Features2DToolbox.DrawMatches(b1, new VectorOfKeyPoint(kp1), b2, new VectorOfKeyPoint(kp2), matches, result, new MCvScalar(255, 255, 255), new MCvScalar(255, 255, 255), mask);
+            if (pts != null)
+            {
+                System.Drawing.Point[] pps = Array.ConvertAll<PointF, Point>(pts, Point.Round);
+                using (VectorOfPoint vp = new VectorOfPoint(pps))
+                {
+                    CvInvoke.Polylines(result, vp, true, new MCvScalar(255, 0, 0, 255), 5);
+                }
+            }
+            result.Save("temp_4.bmp");
         }
     }
 }
