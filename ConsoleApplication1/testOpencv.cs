@@ -25,7 +25,8 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            test_apple_logo();
+            test_apple_logo_v3();
+            //test_apple_logo();
             //test();
             //test_ocr();
             //check_image_similarity();
@@ -494,16 +495,172 @@ namespace ConsoleApplication1
             CvInvoke.Resize(b3, b2, sz);
             b2.Save("temp_3.bmp");
         }
-        static void test_apple_logo()
+        static void test_apple_logo_v3()
         {
-            Mat b1 = CvInvoke.Imread(@"C:\Tools\avia\images\Apple_logo_1.png", ImreadModes.Grayscale);
+            Mat b0 = CvInvoke.Imread(@"data\Apple_logo.png", ImreadModes.Grayscale);
+            Mat b1 = new Mat();
+            CvInvoke.BitwiseNot(b0, b1);
+            b0 = CvInvoke.Imread(@"temp_3.bmp", ImreadModes.Grayscale);
+            Mat b2 = new Mat();
+            CvInvoke.Resize(b0, b2, new Size(b0.Size.Width / 10, b0.Size.Height / 10));
+            b2.Save("temp_1.bmp");
+            Rectangle rect = Rectangle.Empty;
+            // found logo rect
+            if (rect.IsEmpty)
+            {
+                CvInvoke.Threshold(b2, b0, 250, 255, ThresholdType.Binary);
+                using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+                {
+                    CvInvoke.FindContours(b0, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                    int count = contours.Size;
+                    for (int i = 0; i < count; i++)
+                    {
+                        double d = CvInvoke.ContourArea(contours[i]);
+                        if (d > 100.0)
+                        {
+                            Rectangle r = CvInvoke.BoundingRectangle(contours[i]);
+                            Program.logIt(string.Format("{0}: {1}", d, r));
+                            if (rect.IsEmpty) rect = r;
+                            else rect = Rectangle.Union(rect, r);
+                        }
+                    }
+                }
+            }
+            if (!rect.IsEmpty)
+            {
+                rect.Inflate(50, 50);
+                Image<Gray, Byte> img2 = b2.ToImage<Gray, Byte>();
+                Image<Gray, Byte> img2p = img2.GetSubRect(rect);
+                Image<Gray, float> img2s = img2p.Sobel(0, 1, 3).Add(img2p.Sobel(1, 0, 3)).AbsDiff(new Gray(0.0));
+                img2s.Save("temp_2.bmp");
+
+                Image<Gray, Byte> img1 = b1.ToImage<Gray, Byte>();
+                //Image<Gray, Byte> img2p = img2.GetSubRect(rect);
+                Image<Gray, float> img1s = img1.Sobel(0, 1, 3).Add(img1.Sobel(1, 0, 3)).AbsDiff(new Gray(0.0));
+                img1s.Save("temp_1.bmp");
+
+                double[] rates = new double[] { 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.25, 0.225, 0.2125,0.2, 0.175,0.15,0.1 };
+                foreach(double r in rates)
+                {
+                    Image<Gray, Byte> i = img1.Resize(r, Inter.Cubic);
+                    if (img2p.Size.Height > i.Size.Height && img2p.Size.Width>i.Size.Width)
+                    {
+                        img1s= i.Sobel(0, 1, 3).Add(i.Sobel(1, 0, 3)).AbsDiff(new Gray(0.0));
+                        Emgu.CV.Image<Emgu.CV.Structure.Gray, float> t_Result = img2s.MatchTemplate(img1s, TemplateMatchingType.CcoeffNormed);
+                        double[] t_MinValues, t_maxValues;
+                        Point[] t_MinLocations, t_MaxLocations;
+                        t_Result.MinMax(out t_MinValues, out t_maxValues, out t_MinLocations, out t_MaxLocations);
+                        Program.logIt($"r={r}, max={t_maxValues[0]},  loc={t_MaxLocations[0]}");
+                    }
+                }
+
+            }
+        }
+        static void test_apple_logo_v2()
+        {
             //SIFT d = new SIFT();
-            KAZE d = new KAZE();
+            //KAZE d = new KAZE();
+            ORBDetector d = new ORBDetector();
+
+            Mat b0 = CvInvoke.Imread(@"data\Apple_logo.png", ImreadModes.Grayscale);
+            Mat b1 = new Mat();
+            CvInvoke.BitwiseNot(b0, b1);
+
             MKeyPoint[] kp1 = d.Detect(b1);
             Mat desc1 = new Mat();
             d.Compute(b1, new VectorOfKeyPoint(kp1), desc1);
 
-            Mat b2 = CvInvoke.Imread(@"temp_2.bmp", ImreadModes.Grayscale);
+            b0 = CvInvoke.Imread(@"temp_3.bmp", ImreadModes.Grayscale);
+            Mat b2 = new Mat();
+            CvInvoke.Resize(b0, b2, new Size(b0.Size.Width / 10, b0.Size.Height / 10));
+            MKeyPoint[] kp2 = d.Detect(b2);
+            Mat desc2 = new Mat();
+            d.Compute(b2, new VectorOfKeyPoint(kp2), desc2);
+
+            //FlannBasedMatcher fbm = new FlannBasedMatcher(new KdTreeIndexParams(), new SearchParams());
+            //fbm.Add(desc1);
+            //fbm.KnnMatch(desc2, matches, 2, null);
+            VectorOfDMatch vm = new VectorOfDMatch();
+            BFMatcher bf = new BFMatcher(DistanceType.Hamming, true);
+            bf.Add(desc1);
+            bf.Match(desc2, vm);
+            //Matrix<DepthType.Cv8U> mask = new Matrix<DepthType.Cv8U>(vm.Size,1);
+            //Mat mask = new Mat(vm.Size, 1, DepthType.Cv8U, 1);
+            //mask.SetTo(new MCvScalar(0));
+            VectorOfVectorOfDMatch matches = new VectorOfVectorOfDMatch();
+            for(int i=0;i<vm.Size; i++)
+            {
+                MDMatch m = vm[i];
+                matches.Push(new VectorOfDMatch(new MDMatch[] { m }));
+                if (m.Distance<20)
+                {
+
+                }
+            }
+            //bf.KnnMatch(desc2, matches, 2);
+            /*
+            Mat mask = new Mat(matches.Size, 1, DepthType.Cv8U, 1);
+            mask.SetTo(new MCvScalar(255));
+            Features2DToolbox.VoteForUniqueness(matches, 0.9, mask);
+            int nonZeroCount = CvInvoke.CountNonZero(mask);
+            PointF[] pts = null;
+            {
+                nonZeroCount = Features2DToolbox.VoteForSizeAndOrientation(new VectorOfKeyPoint(kp1), new VectorOfKeyPoint(kp2), matches, mask, 1.5, 1);
+                if (nonZeroCount > 4)
+                {
+                    Mat homography = Features2DToolbox.GetHomographyMatrixFromMatchedFeatures(new VectorOfKeyPoint(kp1),
+                               new VectorOfKeyPoint(kp2), matches, mask, 2);
+                    if (homography != null)
+                    {
+                        Rectangle rect = new Rectangle(Point.Empty, b1.Size);
+                        pts = new PointF[]
+                        {
+                  new PointF(rect.Left, rect.Bottom),
+                  new PointF(rect.Right, rect.Bottom),
+                  new PointF(rect.Right, rect.Top),
+                  new PointF(rect.Left, rect.Top)
+                        };
+                        pts = CvInvoke.PerspectiveTransform(pts, homography);
+
+                        //Point[] points = Array.ConvertAll<PointF, Point>(pts, Point.Round);
+                        //using (VectorOfPoint vp = new VectorOfPoint(points))
+                        //{
+                        //    CvInvoke.Polylines(result, vp, true, new MCvScalar(255, 0, 0, 255), 5);
+                        //}
+
+                    }
+                }
+            }
+            */
+            Mat result = new Mat();
+            Features2DToolbox.DrawMatches(b1, new VectorOfKeyPoint(kp1), b2, new VectorOfKeyPoint(kp2), matches, result, new MCvScalar(255, 255, 255), new MCvScalar(255, 255, 255), null);
+            //if (pts != null)
+            //{
+            //    System.Drawing.Point[] pps = Array.ConvertAll<PointF, Point>(pts, Point.Round);
+            //    using (VectorOfPoint vp = new VectorOfPoint(pps))
+            //    {
+            //        CvInvoke.Polylines(result, vp, true, new MCvScalar(255, 0, 0, 255), 5);
+            //    }
+            //}
+            result.Save("temp_4.bmp");
+        }
+        static void test_apple_logo()
+        {
+            //SIFT d = new SIFT();
+            KAZE d = new KAZE();
+            //ORBDetector d = new ORBDetector();
+
+            Mat b0 = CvInvoke.Imread(@"data\Apple_logo.png", ImreadModes.Grayscale);
+            Mat b1 = new Mat();
+            CvInvoke.BitwiseNot(b0, b1);
+            
+            MKeyPoint[] kp1 = d.Detect(b1);
+            Mat desc1 = new Mat();
+            d.Compute(b1, new VectorOfKeyPoint(kp1), desc1);
+
+            b0 = CvInvoke.Imread(@"temp_3.bmp", ImreadModes.Grayscale);
+            Mat b2 = new Mat();
+            CvInvoke.Resize(b0, b2, new Size(b0.Size.Width / 10, b0.Size.Height / 10));
             MKeyPoint[] kp2 = d.Detect(b2);
             Mat desc2 = new Mat();
             d.Compute(b2, new VectorOfKeyPoint(kp2), desc2);
