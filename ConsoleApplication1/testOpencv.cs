@@ -25,7 +25,8 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            test_apple_logo_v3();
+            check_apple_logo();
+            //test_apple_logo_v3();
             //test_apple_logo();
             //test();
             //test_ocr();
@@ -494,6 +495,45 @@ namespace ConsoleApplication1
             Size sz = new Size(b3.Size.Width / 10, b3.Size.Height / 10);
             CvInvoke.Resize(b3, b2, sz);
             b2.Save("temp_3.bmp");
+        }
+        static void check_apple_logo()
+        {
+            Mat b0 = CvInvoke.Imread(@"data\Apple_logo.png", ImreadModes.Grayscale);
+            Image<Gray, Byte> img = b0.ToImage<Gray, Byte>();
+            Image<Gray, Byte> img_logo = img.Not();
+            b0 = CvInvoke.Imread(@"C:\Tools\avia\Recog source\AP001-iphone6_gold\0123.1.bmp", ImreadModes.Grayscale);
+            img = b0.ToImage<Gray, Byte>();
+            //img = img.Resize(0.1, Inter.Cubic);
+            CvInvoke.EqualizeHist(img, b0);
+            b0.Save("temp_1.bmp");
+            Mat mean = new Mat();
+            Mat stddev = new Mat();
+            img = img.Rotate(-90.0, new Gray(0));
+            CvInvoke.MeanStdDev(img.Mat, mean, stddev);
+            img = img.ThresholdBinary(new Gray(127), new Gray(255));
+            img.Save("temp_1.bmp");
+            img = img.Erode(3);
+            img.Save("temp_2.bmp");
+            Rectangle ret = Rectangle.Empty;
+            using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+            {
+                CvInvoke.FindContours(img, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                int count = contours.Size;
+                for (int i = 0; i < count; i++)
+                {
+                    double d = CvInvoke.ContourArea(contours[i]);
+                    if (d > 10000.0)
+                    {
+                        Rectangle rect = CvInvoke.BoundingRectangle(contours[i]);
+                        Program.logIt(string.Format("{0}: {1}", d, rect));
+                        if (ret.IsEmpty) ret = rect;
+                        else ret = Rectangle.Union(ret, rect);
+                    }
+                }
+            }
+            ret.Inflate(100, 100);
+            img = img.GetSubRect(ret);
+            img.Save("temp_4.bmp");
         }
         static void test_apple_logo_v3()
         {
