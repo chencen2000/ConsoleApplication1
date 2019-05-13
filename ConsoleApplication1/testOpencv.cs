@@ -370,6 +370,23 @@ namespace ConsoleApplication1
             CvInvoke.AddWeighted(dx, 0.5, dy, 0.5, 0, b1);
             b1.Save("temp_2.bmp");
 
+            DenseHistogram hist = new DenseHistogram(256, new RangeF(0.0f, 255.0f));
+            hist.Calculate(new Image<Gray, Byte>[] { b1.ToImage<Gray, Byte>() }, true, null);
+            float[] bins = hist.GetBinValues();
+            int v = 0;
+            float count = 0;
+            for(int i = bins.Length - 1; i >= 0 && v==0; i--)
+            {
+                count += bins[i];
+                float r = count / b1.Total.ToInt64();
+                if (r > 0.002f)
+                    v = i;
+            }
+
+            CvInvoke.Threshold(b1, b0, v, 255, ThresholdType.Binary);
+            b0.Save("temp_3.bmp");
+
+
         }
         static void test_skelton()
         {
