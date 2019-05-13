@@ -25,7 +25,8 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            check_apple_logo();
+            test_edge_detect_1();
+            //check_apple_logo();
             //test_apple_logo_v3();
             //test_apple_logo();
             //test();
@@ -464,37 +465,116 @@ namespace ConsoleApplication1
         }
         static void test()
         {
-            string src = @"C:\tools\avia\A07- NEW2.4.3.3\Allmodels\AP001\work_station_1\image.bmp";
-            Mat b1 = CvInvoke.Imread(src, ImreadModes.Grayscale);
-            Mat b2 = new Mat();
-            CvInvoke.Rotate(b1, b2, RotateFlags.Rotate90CounterClockwise);
-            b2.Save("temp_1.bmp");
-            Mat b3 = new Mat();
-            CvInvoke.Threshold(b2, b3, 225, 255, ThresholdType.Binary);
-            b3.Save("temp_2.bmp");
-            Emgu.CV.CvInvoke.Erode(b3, b3, null, new Point(-1, -1), 3, Emgu.CV.CvEnum.BorderType.Default, new Emgu.CV.Structure.MCvScalar(0));
-            //Emgu.CV.CvInvoke.Dilate(b3, b3, null, new Point(-1, -1), 7, Emgu.CV.CvEnum.BorderType.Default, new Emgu.CV.Structure.MCvScalar(255));
-            b3.Save("temp_3.bmp");
-            Rectangle ret = Rectangle.Empty;
-            using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+            string folder = @"C:\tools\avia\Recog source\AP001-iphone6_gold";
+            string[] files = System.IO.Directory.GetFiles(folder, "*.bmp", SearchOption.AllDirectories);
+
+            //string src = @"C:\tools\avia\Recog source\AP002-iphone6_Gray\1733.1.bmp";
+            foreach (string src in files)
             {
-                CvInvoke.FindContours(b3, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
-                int count = contours.Size;
-                for (int i = 0; i < count; i++)
+                Mat b1 = CvInvoke.Imread(src);
+                DenseHistogram h = new DenseHistogram(256, new RangeF(0f, 255f));
+                h.Calculate(new Image<Gray, Byte>[] { b1.ToImage<Gray, Byte>() }, false, null);
+                float count = 0.0f;
+                float r = 0.0f;
+                float[] binValues = h.GetBinValues();
+                int value = -1;
+                for (int i = 255; i >= 0 && r < 0.008f; i--)
                 {
-                    double d = CvInvoke.ContourArea(contours[i]);
-                    if (d > 10000.0)
+                    count += binValues[i];
+                    r = count / b1.Total.ToInt64();
+                    if (r > 0.008f)
                     {
-                        Rectangle rect = CvInvoke.BoundingRectangle(contours[i]);
-                        Program.logIt(string.Format("{0}: {1}", d, rect));
-                        if (ret.IsEmpty) ret = rect;
-                        else ret = Rectangle.Union(ret, rect);
+                        value = i;
+                        Program.logIt($"binValue: {value}");
                     }
                 }
+                // 
+                Mat b0 = new Mat();
+                CvInvoke.Threshold(b1, b0, value, 255, ThresholdType.Binary);
+                b0.Save($@"test\{System.IO.Path.GetFileName(src)}");
             }
-            Size sz = new Size(b3.Size.Width / 10, b3.Size.Height / 10);
-            CvInvoke.Resize(b3, b2, sz);
-            b2.Save("temp_3.bmp");
+        }
+        static void test_edge_detect_1()
+        {
+            string src = @"C:\tools\avia\Recog source\AP002-iphone6_Gray\1733.1.bmp";
+            Mat b0 = CvInvoke.Imread(src);
+            Mat b1 = new Mat();
+            Mat b2 = new Mat();
+            Size size = b0.Size;
+            CvInvoke.Resize(b0, b1, new Size(size.Width / 10, size.Height / 10));
+            CvInvoke.GaussianBlur(b1, b2, new Size(3, 3), 0);
+            CvInvoke.MedianBlur(b2, b1, 3);
+            Mat dx = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
+            Mat dy = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
+            CvInvoke.Sobel(b1, dx, DepthType.Cv16S, 1, 0);
+            CvInvoke.Sobel(b1, dy, DepthType.Cv16S, 0, 1);
+            MCvScalar stddev = new MCvScalar();
+            MCvScalar mean = new MCvScalar();
+            CvInvoke.MeanStdDev(b1, ref mean, ref stddev);
+            //CvInvoke.MeanStdDev(dx, mean, stddev);
+            //CvInvoke.MeanStdDev(dy, mean, stddev);
+            CvInvoke.Canny(dx, dy, b1,  , 90);
+            b1.Save("temp_1.bmp");
+        }
+        static void test_edge_detect()
+        {
+            string src = @"C:\tools\avia\Recog source\AP002-iphone6_Gray\1733.1.bmp";
+            Mat b1 = CvInvoke.Imread(src);
+            Mat b2 = new Mat();
+            Size size = b1.Size;
+            CvInvoke.Resize(b1, b2, new Size(size.Width / 10, size.Height / 10));
+            CvInvoke.GaussianBlur(b2, b1, new Size(3, 3), 0);
+            CvInvoke.MedianBlur(b1, b2, 3);
+            b1 = b2;
+            size = b1.Size;
+            // 
+            Mat dx = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
+            Mat dy = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
+            CvInvoke.Sobel(b1, dx, DepthType.Cv16S, 1, 0);
+            CvInvoke.Sobel(b1, dy, DepthType.Cv16S, 0, 1);
+            //
+            Matrix<Int16> dx_m = new Matrix<Int16>(dx.Rows, dx.Cols, dx.NumberOfChannels);
+            dx.CopyTo(dx_m);
+            Matrix<Int16> dy_m = new Matrix<Int16>(dy.Rows, dy.Cols, dy.NumberOfChannels);
+            dy.CopyTo(dy_m);
+            //Image<Gray, Int16> idx = dx.ToImage<Gray, Int16>();
+            //Mat img = Mat.Zeros(b1.Rows, b1.Cols, DepthType.Cv32F, 1);
+            Matrix<float> img_m = new Matrix<float>(b1.Rows, b1.Cols, b1.NumberOfChannels);
+            
+            float maxV = 0.0f;
+            float data;
+            for(int i=0; i < size.Height; i++)
+            {
+                for(int j=0; j < size.Width; j++)
+                {
+                    data = Math.Abs(dx_m.Data[i,j]) + Math.Abs(dy_m.Data[i,j]);
+                    //img.ToImage<Gray, float>().Data[i, j, 0] = data;
+                    img_m.Data[i, j] = data;
+                    maxV = maxV < data ? data : maxV;
+                }
+            }
+            //img.Save("temp_1.bmp");
+            //b2.Save("temp_1.bmp");
+            int bin_size = Math.Max((int)maxV, 256);
+            RangeF r = new RangeF(0.0f, maxV);
+            DenseHistogram h = new DenseHistogram(bin_size, r);
+            h.Calculate(new Matrix<float>[] { img_m }, false, null);
+            float[] binValues = h.GetBinValues();
+            float th = 0.8f * size.Width * size.Height;
+            float sum = 0.0f;
+            int the_low_value = 0;
+            for(int i = 0; i < binValues.Length; i++)
+            {
+                sum += binValues[i];
+                if (sum > th)
+                {
+                    the_low_value = i;
+                    break;
+                }
+            }
+            double the_high_value = 2.5 * the_low_value;
+            b1 = CvInvoke.Imread(src);
+            b1.ToImage<Gray, byte>().Canny(the_low_value, the_high_value).Save("temp_1.bmp");
         }
         static void check_apple_logo()
         {
