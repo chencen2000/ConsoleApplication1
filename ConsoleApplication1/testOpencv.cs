@@ -36,7 +36,7 @@ namespace ConsoleApplication1
             //pre_process();
             //extra_icon();
             //find_focused_item();
-            //test_3();
+            test_3();
             //test_1();
             //test();
             //test();
@@ -352,20 +352,43 @@ namespace ConsoleApplication1
         }
         static void test_3()
         {
-            Mat img1 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_02.jpg");
-            Mat img2 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_12.jpg");
-            double d = CvInvoke.PSNR(img1, img2);
-            Program.logIt(string.Format("psnr={0}", d));
-            Mat r = new Mat();
-            CvInvoke.MatchTemplate(img2, img1, r, TemplateMatchingType.CcoeffNormed);
-            double minV = 0;
-            double maxV = 0;
-            Point minP = new Point();
-            Point maxP = new Point();
-            CvInvoke.MinMaxLoc(r, ref minV, ref maxV, ref minP, ref maxP);
-            CvInvoke.AbsDiff(img1, img2, r);
-            r.Save("temp_1.jpg");
-        }        
+            string src = @"C:\Tools\avia\Recog source\AP002-iphone6_Gray\1733.1.bmp";
+            Mat b0 = CvInvoke.Imread(src, ImreadModes.Grayscale);
+            Mat b1 = new Mat();
+
+            //CvInvoke.GaussianBlur(b0, b1, new Size(3,3), 0, 0, BorderType.Default);
+            //CvInvoke.Laplacian(b1, b0, DepthType.Cv16S, 3,1,0, BorderType.Replicate);
+            //CvInvoke.ConvertScaleAbs(b0, b1, 1, 0);
+            //b1.Save("temp_2.bmp");
+
+            CvInvoke.GaussianBlur(b0, b1, new Size(3, 3), 0, 0, BorderType.Default);
+            Mat dx = new Mat();
+            Mat dy = new Mat();
+            CvInvoke.Sobel(b1, dx, DepthType.Cv16S, 1, 0);
+            CvInvoke.ConvertScaleAbs(dx, dx, 1, 0);
+            CvInvoke.Sobel(b1, dy, DepthType.Cv16S, 0, 1);
+            CvInvoke.ConvertScaleAbs(dy, dy, 1, 0);
+            CvInvoke.AddWeighted(dx, 0.5, dy, 0.5, 0, b1);
+            b1.Save("temp_2.bmp");
+
+            DenseHistogram hist = new DenseHistogram(256, new RangeF(0.0f, 255.0f));
+            hist.Calculate(new Image<Gray, Byte>[] { b1.ToImage<Gray, Byte>() }, true, null);
+            float[] bins = hist.GetBinValues();
+            int v = 0;
+            float count = 0;
+            for(int i = bins.Length - 1; i >= 0 && v==0; i--)
+            {
+                count += bins[i];
+                float r = count / b1.Total.ToInt64();
+                if (r > 0.002f)
+                    v = i;
+            }
+
+            CvInvoke.Threshold(b1, b0, v, 255, ThresholdType.Binary);
+            b0.Save("temp_3.bmp");
+
+
+        }
         static void test_skelton()
         {
             Mat m = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\iphone_icon\app_switch_close_1.jpg", ImreadModes.Grayscale);
