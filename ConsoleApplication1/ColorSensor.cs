@@ -1,8 +1,11 @@
-﻿using System;
+﻿using Emgu.CV;
+using Emgu.CV.ML;
+using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace ConsoleApplication1
@@ -24,6 +27,10 @@ namespace ConsoleApplication1
             {
                 // train process
                 train(_args.Parameters);
+            }
+            else
+            {
+                test();
             }
         }
         static void train(System.Collections.Specialized.StringDictionary args)
@@ -108,6 +115,87 @@ namespace ConsoleApplication1
                     sb.Append(ret);
             }
             return sb.ToString();
+        }
+        static void test()
+        {
+            //Regex r = new Regex(@"^Color Temp: (\d+) K - Lux: (\d+) - R: (\d+) G: (\d+) B: (\d+) Rr: (\d+) Gr: (\d+) Br: (\d+) C: (\d+)\s*$");
+            //string[] lines = System.IO.File.ReadAllLines(@"data\test.txt");
+            //foreach(string s in lines)
+            //{
+            //    Match m = r.Match(s);
+            //    if (m.Success)
+            //    {
+            //        if (m.Groups.Count > 9)
+            //        {
+
+            //        }
+            //    }
+            //}
+            string s = "knn.xml";
+            if (System.IO.File.Exists(s))
+            {
+                using (KNearest knn = new KNearest())
+                {
+                    knn.Load(s);
+                    //bool ok = knn.Train(data, Emgu.CV.ML.MlEnum.DataLayoutType.RowSample, response);
+                    Matrix<float> sample;
+                    test_data(out sample);
+                    float r = knn.Predict(sample);
+
+                }
+            }
+            else
+            {
+                Matrix<float> data;
+                Matrix<float> response;
+                ReadMushroomData(out data, out response);
+
+                // 
+                using (KNearest knn = new KNearest())
+                {
+                    knn.DefaultK = 3;
+                    knn.IsClassifier = true;
+                    bool ok = knn.Train(data, Emgu.CV.ML.MlEnum.DataLayoutType.RowSample, response);
+                    if (ok)
+                    {
+                        knn.Save("knn.xml");
+                        //int cols = data.Cols;
+                        //Matrix<float> sample = new Matrix<float>(1, cols);
+                        Matrix<float> sample;
+                        test_data(out sample);
+                        float r = knn.Predict(sample);
+                    }
+                }
+            }
+        }
+        static private void test_data(out Matrix<float> data)
+        {
+            string raw_data = "x,y,w,t,p,f,c,n,w,e,e,s,y,w,w,p,w,o,p,k,s,g";
+            int varCount = raw_data.Split(',').Length ;
+            data = new Matrix<float>(1, varCount);
+            string[] values = raw_data.Split(',');
+            for (int i = 0; i < values.Length; i++)
+            {
+                data[0, i] = System.Convert.ToByte(System.Convert.ToChar(values[i]));
+            }
+        }
+        static private void ReadMushroomData(out Matrix<float> data, out Matrix<float> response)
+        {
+            string[] rows = System.IO.File.ReadAllLines(@"data\agaricus-lepiota.txt");
+
+            int varCount = rows[0].Split(',').Length - 1;
+            data = new Matrix<float>(rows.Length, varCount);
+            response = new Matrix<float>(rows.Length, 1);
+            int count = 0;
+            foreach (string row in rows)
+            {
+                string[] values = row.Split(',');
+                Char c = System.Convert.ToChar(values[0]);
+                response[count, 0] = System.Convert.ToInt32(c);
+                for (int i = 1; i < values.Length; i++)
+                    data[count, i - 1] = System.Convert.ToByte(System.Convert.ToChar(values[i]));
+                count++;
+            }
         }
     }
 }
