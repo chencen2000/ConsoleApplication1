@@ -25,7 +25,7 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            test_edge_detect_1();
+            //test_edge_detect_1();
             //check_apple_logo();
             //test_apple_logo_v3();
             //test_apple_logo();
@@ -36,7 +36,7 @@ namespace ConsoleApplication1
             //pre_process();
             //extra_icon();
             //find_focused_item();
-            test_3();
+            //test_3();
             //test_1();
             //test();
             //test();
@@ -536,7 +536,7 @@ namespace ConsoleApplication1
             CvInvoke.MeanStdDev(b1, ref mean, ref stddev);
             //CvInvoke.MeanStdDev(dx, mean, stddev);
             //CvInvoke.MeanStdDev(dy, mean, stddev);
-            CvInvoke.Canny(dx, dy, b1,  , 90);
+            //CvInvoke.Canny(dx, dy, b1,  , 90);
             b1.Save("temp_1.bmp");
         }
         static void test_edge_detect()
