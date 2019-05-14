@@ -50,7 +50,8 @@ namespace ConsoleApplication1
                 _port.WriteTimeout = 1000;
                 _port.DataReceived += _port_DataReceived;
                 _port.Open();
-                System.Threading.Thread.Sleep(1000);
+                System.Threading.Thread.Sleep(3000);
+                _port.Write(new byte[] { 0xff }, 0, 1);
             }
             catch (Exception)
             {
@@ -61,7 +62,14 @@ namespace ConsoleApplication1
             {
                 System.Console.WriteLine("Please remove the device. Press any key to continue.");
                 System.Console.ReadKey();
-                _port.Write(new byte[] { 0xff }, 0, 1);
+                data = get_data();
+                if (!string.IsNullOrEmpty(data))
+                {
+                    Program.logIt($"get: {data}");
+                }
+                //
+                System.Console.WriteLine("Please put the device. Press any key to continue.");
+                System.Console.ReadKey();
                 data = get_data();
                 if (!string.IsNullOrEmpty(data))
                 {
@@ -71,7 +79,10 @@ namespace ConsoleApplication1
             if (_port != null)
             {
                 if (_port.IsOpen)
+                {
+                    _port.Write(new byte[] { 0x00 }, 0, 1);
                     _port.Close();
+                }
             }
         }
 
@@ -105,8 +116,8 @@ namespace ConsoleApplication1
             StringBuilder sb = new StringBuilder();
             _need_data.Set();
             // get data
-            //while (_incoming_data.IsEmpty)
-            System.Threading.Thread.Sleep(1000);
+            while (_incoming_data.IsEmpty)
+                System.Threading.Thread.Sleep(100);
             _need_data.Reset();
             // get data
             while (!_incoming_data.IsEmpty)
