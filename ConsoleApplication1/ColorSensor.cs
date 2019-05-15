@@ -30,7 +30,8 @@ namespace ConsoleApplication1
             }
             else
             {
-                test();
+                //test();
+                test_svm();
             }
         }
         static void train(System.Collections.Specialized.StringDictionary args)
@@ -129,6 +130,21 @@ namespace ConsoleApplication1
         }
         static void test()
         {
+            //1.open serial port
+            //2.wait for sensor ready
+            //3.turn off led
+            //4.read data for white noise
+            //5.press any key to continue to read device color
+            //6.place device
+            //7.wait for device in-place
+            //8.read data for device color
+            //9.wait for device removal
+            //10.press 'q' to quit or go to 7.
+            //11.done.
+
+        }
+        static void test_knn()
+        {
             //Regex r = new Regex(@"^Color Temp: (\d+) K - Lux: (\d+) - R: (\d+) G: (\d+) B: (\d+) Rr: (\d+) Gr: (\d+) Br: (\d+) C: (\d+)\s*$");
             //string[] lines = System.IO.File.ReadAllLines(@"data\test.txt");
             //foreach(string s in lines)
@@ -206,6 +222,48 @@ namespace ConsoleApplication1
                 for (int i = 1; i < values.Length; i++)
                     data[count, i - 1] = System.Convert.ToByte(System.Convert.ToChar(values[i]));
                 count++;
+            }
+        }
+        static private void ReadMushroomData_for_SVM(out Matrix<float> data, out Matrix<int> response)
+        {
+            string[] rows = System.IO.File.ReadAllLines(@"data\agaricus-lepiota.txt");
+
+            int varCount = rows[0].Split(',').Length - 1;
+            data = new Matrix<float>(rows.Length, varCount);
+            response = new Matrix<int>(rows.Length, 1);
+            int count = 0;
+            foreach (string row in rows)
+            {
+                string[] values = row.Split(',');
+                Char c = System.Convert.ToChar(values[0]);
+                response[count, 0] = System.Convert.ToInt32(c);
+                for (int i = 1; i < values.Length; i++)
+                    data[count, i - 1] = System.Convert.ToByte(System.Convert.ToChar(values[i]));
+                count++;
+            }
+        }
+        static void test_svm()
+        {
+            Matrix<float> data;
+            Matrix<int> response;
+            ReadMushroomData_for_SVM(out data, out response);
+
+            using (SVM model = new SVM())
+            {
+                //model.KernelType = SVM.SvmKernelType.Linear;
+                model.Type = SVM.SvmType.CSvc;
+                model.C = 1;
+                model.TermCriteria = new Emgu.CV.Structure.MCvTermCriteria(100, 0.00001);
+                //SVMParams p = new SVMParams();
+                //p.KernelType = Emgu.CV.ML.MlEnum.SVM_KERNEL_TYPE.LINEAR;
+                //p.SVMType = Emgu.CV.ML.MlEnum.SVM_TYPE.C_SVC;
+                //p.C = 1;
+                //p.TermCrit = new MCvTermCriteria(100, 0.00001);
+                bool ok = model.Train(data, Emgu.CV.ML.MlEnum.DataLayoutType.RowSample, response);
+                Matrix<float> sample;
+                test_data(out sample);
+                float r = model.Predict(sample);
+
             }
         }
     }

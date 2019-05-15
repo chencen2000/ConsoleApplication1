@@ -25,6 +25,7 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
+            //get_all_back_images();
             //test_edge_detect_1();
             //check_apple_logo();
             //test_apple_logo_v3();
@@ -38,7 +39,7 @@ namespace ConsoleApplication1
             //find_focused_item();
             //test_3();
             //test_1();
-            //test();
+            test2();
             //test();
             //test_surf();
             //Image<Bgra, byte> img1 = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
@@ -62,6 +63,25 @@ namespace ConsoleApplication1
             //double a = v1.GetExteriorAngleDegree(v3);
             //a = v2.GetExteriorAngleDegree(v3);
         }
+        static void get_all_back_images()
+        {
+            string root = @"C:\Tools\avia\A07- NEW2.4.3.3\Allmodels";
+            string target = @"C:\Tools\avia\images\test";
+            if (System.IO.Directory.Exists(root))
+            {
+                string[] models = System.IO.Directory.GetDirectories(root);
+                foreach(string model in models)
+                {
+                    string m = System.IO.Path.GetFileName(model);
+                    string img = System.IO.Path.Combine(model, "work_station_1","image.bmp");
+                    if (System.IO.File.Exists(img))
+                    {
+                        System.IO.File.Copy(img, System.IO.Path.Combine(target, $"{m}_image.bmp"), true);
+                    }
+                }
+            }
+        }
+
         static void check_image_similarity()
         {
             Mat b1 = CvInvoke.Imread(@"C:\Users\qa\Desktop\picture\save_06.jpg");
@@ -857,6 +877,23 @@ namespace ConsoleApplication1
                 }
             }
             result.Save("temp_4.bmp");
+        }
+        static void test2()
+        {
+            string s = @"C:\Tools\avia\images\test\AP001_image.bmp";
+            Mat b0 = CvInvoke.Imread(s, ImreadModes.Grayscale);
+            Mat b1 = new Mat();
+            CvInvoke.GaussianBlur(b0, b1, new Size(3, 3), 0);
+            Mat dx = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
+            Mat dy = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
+            CvInvoke.Sobel(b1, dx, DepthType.Cv16S, 1, 0);
+            CvInvoke.Sobel(b1, dy, DepthType.Cv16S, 0, 1);
+            Mat abs_grad_x = new Mat();
+            Mat abs_grad_y = new Mat();
+            CvInvoke.ConvertScaleAbs(dx, abs_grad_x, 1, 0);
+            CvInvoke.ConvertScaleAbs(dy, abs_grad_y, 1, 0);
+            CvInvoke.AddWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, b1);
+            b1.Save("temp_1.bmp");
         }
     }
 }
