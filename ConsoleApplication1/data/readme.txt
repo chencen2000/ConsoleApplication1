@@ -9,3 +9,8 @@
 9. wait for device removal
 10. press 'q' to quit or go to 7.
 11. done.
+
+
+CannyLines: A Parameter-Free Line Segment Detector
+http://cvrs.whu.edu.cn/projects/cannyLines
+http://www.kerrywong.com/2009/05/07/canny-edge-detection-auto-thresholding/
