@@ -14,3 +14,8 @@
 CannyLines: A Parameter-Free Line Segment Detector
 http://cvrs.whu.edu.cn/projects/cannyLines
 http://www.kerrywong.com/2009/05/07/canny-edge-detection-auto-thresholding/
+
+
+color index:
+1: Apple 6S RG
+2: Apple 6P GD

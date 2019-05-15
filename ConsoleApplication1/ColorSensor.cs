@@ -28,10 +28,15 @@ namespace ConsoleApplication1
                 // train process
                 train(_args.Parameters);
             }
+            else if (_args.IsParameterTrue("sample"))
+            {
+                sample_device(_args.Parameters);
+            }
             else
             {
                 //test();
-                test_svm();
+                //test_svm();
+                sample_device(_args.Parameters);
             }
         }
         static void train(System.Collections.Specialized.StringDictionary args)
@@ -128,12 +133,207 @@ namespace ConsoleApplication1
             }
             return sb.ToString();
         }
-        static void test()
+
+        static void sample_device(System.Collections.Specialized.StringDictionary args)
         {
+            System.Console.WriteLine($"Open COM port: {args["port"]}.");
             //1.open serial port
+            try
+            {
+                _port = new System.IO.Ports.SerialPort(args["port"]);
+                //_port = new SerialPort(args["port"], 9600);
+                _port.BaudRate = 9600;
+                _port.Parity = Parity.None;
+                _port.StopBits = StopBits.One;
+                _port.DataBits = 8;
+                _port.Handshake = Handshake.None;
+                _port.RtsEnable = true;
+                _port.DtrEnable = true;
+                _port.ReadTimeout = 1000;
+                _port.WriteTimeout = 1000;
+                _port.DataReceived += _port_DataReceived;
+                _port.Open();
+            }
+            catch (Exception)
+            {
+                _port = null;
+                System.Console.WriteLine($"Fail to open COM port: {args["port"]}.");
+                goto exit;
+            }
+
+            DateTime _start = DateTime.Now;
+            bool done = false;
+            System.Console.WriteLine($"Waiting for sensor ready.");
             //2.wait for sensor ready
+            while (!done)
+            {
+                string s = get_data();
+                Match m = Regex.Match(s, "Found sensor", RegexOptions.None, Regex.InfiniteMatchTimeout);
+                if(m.Success)
+                {
+                    System.Console.WriteLine($"Sensor is ready.");
+                    done = true;
+                }
+                if ((DateTime.Now - _start).TotalSeconds > 10)
+                    break;
+            }
+            if (!done)
+            {
+                System.Console.WriteLine($"Sensor is not ready.");
+                goto exit;
+            }
+
+            Regex r = new Regex(@"^Color Temp: (\d+) K - Lux: (\d+) - R: (\d+) G: (\d+) B: (\d+) C: (\d+)\s*$");
             //3.turn off led
+            System.Console.WriteLine($"Trun off LED.");
+            _port.Write(new byte[] { 0x00 }, 0, 1);
+
+            System.Console.WriteLine($"Read data for white noise.");
+            System.Console.WriteLine($"Please remove device from sensor, and press any key to continue and q to quit.");
+            ConsoleKeyInfo k = System.Console.ReadKey();
+            if(k.KeyChar=='q' || k.KeyChar == 'q')
+            {
+                goto exit;
+            }
             //4.read data for white noise
+            int samples = 10;
+            int[,] white_noise = new int[samples,6];
+            System.Console.WriteLine($"Read {samples} sample data for white noise.");
+            done = false;
+            int i = 0;
+            int[] white_noise_lux = new int[samples];
+            int[] white_noise_c = new int[samples];
+            while (!done && i<samples)
+            {
+                System.Threading.Thread.Sleep(1000);
+                string s = get_data();
+                System.Console.WriteLine($"White noise data: {s}");
+                Match m = r.Match(s);
+                if(m.Success && m.Groups.Count > 6)
+                {
+                    white_noise[i, 0] = Int32.Parse(m.Groups[1].Value);
+                    white_noise[i, 1] = Int32.Parse(m.Groups[2].Value);
+                    white_noise[i, 2] = Int32.Parse(m.Groups[3].Value);
+                    white_noise[i, 3] = Int32.Parse(m.Groups[4].Value);
+                    white_noise[i, 4] = Int32.Parse(m.Groups[5].Value);
+                    white_noise[i, 5] = Int32.Parse(m.Groups[6].Value);
+                    white_noise_lux[i] = white_noise[i, 1];
+                    white_noise_c[i] = white_noise[i, 5];
+                    i++;
+                }
+            }
+            System.Console.WriteLine($"Complete to sample data for white noise.");
+            // MeanStandardDeviation 
+            Tuple<double, double> wn_lux = MathNet.Numerics.Statistics.ArrayStatistics.MeanStandardDeviation(white_noise_lux);
+            Tuple<double, double> wn_c = MathNet.Numerics.Statistics.ArrayStatistics.MeanStandardDeviation(white_noise_c);
+            System.Console.WriteLine($"White noise. mean of lux={wn_lux.Item1}, stddev={wn_lux.Item2}");
+            System.Console.WriteLine($"White noise. mean of C={wn_c.Item1}, stddev={wn_c.Item2}");
+            done = false;
+            int color_index = -1;
+            string data = "";
+            while (!done)
+            {
+                System.Console.WriteLine($"Read device color. please enter the color index (1,2,14...) and enter: ");
+                data = System.Console.ReadLine();
+                if(Int32.TryParse(data, out color_index))
+                {
+                    done = true;
+                }
+            }
+            done = false;
+            System.Console.WriteLine($"Read device color. please place devices, press q to quit.");
+            List<int[]> color_data = new List<int[]>();
+            int device_stage = 0;
+            while (!done)
+            {
+                System.Threading.Thread.Sleep(1000);
+                if (System.Console.KeyAvailable)
+                {
+                    k = System.Console.ReadKey();
+                    if (k.KeyChar == 'q' || k.KeyChar == 'q')
+                    {
+                        done = true;
+                        continue;
+                    }
+                }
+                //string data;
+                data = get_data();
+                Match m = r.Match(data);
+                if (m.Success)
+                {
+                    System.Console.WriteLine($"Data: {data}");
+                    if (m.Groups.Count > 6)
+                    {
+                        if (device_stage == 0)
+                        {
+                            // wiat for device in place,
+                            // get lux and c
+                            int lux = Int32.Parse(m.Groups[2].Value);
+                            int c = Int32.Parse(m.Groups[6].Value);
+                            double r1 = (wn_lux.Item1 - lux) / wn_lux.Item1;
+                            double r2 = (wn_c.Item1 - c) / wn_c.Item1;
+                            if (r1 > 0.5 && r2 > 0.5)
+                            {
+                                // device in place
+                                System.Console.WriteLine($"Device In-Place.");
+                                device_stage = 1;
+                            }
+                        }
+                        else if (device_stage == 1)
+                        {
+                            // device in-place
+                            // led on.
+                            System.Console.WriteLine($"Turn On LED .");
+                            _port.Write(new byte[] { 0xff }, 0, 1);
+                            device_stage = 2;
+                            System.Threading.Thread.Sleep(2000);
+                        }
+                        else if (device_stage == 2)
+                        {
+                            System.Console.WriteLine($"Color Data: {data}");
+                            // save color data
+                            int []c = new int[6];
+                            c[0] = Int32.Parse(m.Groups[1].Value);
+                            c[1] = Int32.Parse(m.Groups[2].Value);
+                            c[2] = Int32.Parse(m.Groups[3].Value);
+                            c[3] = Int32.Parse(m.Groups[4].Value);
+                            c[4] = Int32.Parse(m.Groups[5].Value);
+                            c[5] = Int32.Parse(m.Groups[6].Value);
+                            color_data.Add(c);
+                            device_stage = 3;
+                        }
+                        else if (device_stage == 3)
+                        {
+                            // device in-place
+                            // led on.
+                            System.Console.WriteLine($"Turn Off LED .");
+                            _port.Write(new byte[] { 0x00 }, 0, 1);
+                            device_stage = 4;
+                            System.Threading.Thread.Sleep(1000);
+                        }
+                        else if (device_stage == 4)
+                        {
+                            System.Console.WriteLine($"Please remove device and place another one.");
+                            // wiat for device remove,
+                            // get lux and c
+                            int lux = Int32.Parse(m.Groups[2].Value);
+                            int c = Int32.Parse(m.Groups[6].Value);
+                            double r1 = (wn_lux.Item1 - lux) / wn_lux.Item1;
+                            double r2 = (wn_c.Item1 - c) / wn_c.Item1;
+                            if (r1 < 0.2 && r2 < 0.2)
+                            {
+                                // device in place
+                                System.Console.WriteLine($"Device removed.");
+                                device_stage = 0;
+                            }
+                        }
+                        else
+                        {
+
+                        }
+                    }
+                }
+            }
             //5.press any key to continue to read device color
             //6.place device
             //7.wait for device in-place
@@ -141,7 +341,37 @@ namespace ConsoleApplication1
             //9.wait for device removal
             //10.press 'q' to quit or go to 7.
             //11.done.
-
+            // dump color data;
+            System.Console.WriteLine($"Color Index: {color_index}");
+            foreach(int[] a in color_data)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append($"{color_index},");
+                int R = a[2];
+                int G = a[3];
+                int B = a[4];
+                int C = a[5];
+                foreach (int b in a)
+                {
+                    sb.Append($"{b},");
+                }
+                double d = 1.0 * R / C * 255;
+                sb.Append($"{(int)d},");
+                d = 1.0 * G / C * 255;
+                sb.Append($"{(int)d},");
+                d = 1.0 * B / C * 255;
+                sb.Append($"{(int)d},");
+                System.Console.WriteLine(sb.ToString());
+            }
+            exit:
+            if (_port != null)
+            {
+                if (_port.IsOpen)
+                {
+                    _port.Write(new byte[] { 0x00 }, 0, 1);
+                    _port.Close();
+                }
+            }
         }
         static void test_knn()
         {
