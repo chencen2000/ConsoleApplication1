@@ -883,7 +883,7 @@ namespace ConsoleApplication1
             string s = @"C:\Tools\avia\images\test\AP001_image.bmp";
             Mat b0 = CvInvoke.Imread(s, ImreadModes.Grayscale);
             Mat b1 = new Mat();
-            /*
+            
             CvInvoke.GaussianBlur(b0, b1, new Size(3, 3), 0);
             Mat dx = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
             Mat dy = new Mat(b1.Rows, b1.Cols, DepthType.Cv16S, 1);
@@ -895,17 +895,9 @@ namespace ConsoleApplication1
             CvInvoke.ConvertScaleAbs(dy, abs_grad_y, 1, 0);
             CvInvoke.AddWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, b1);
             b1.Save("temp_1.bmp");
-            */
-            double d = CvInvoke.Threshold(b0, b1, 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
-            double d0 = d / 3.0;
-            CvInvoke.Canny(b0, b1, d0, d);
-            b1.Save("temp_2.bmp");
-
-            MCvScalar mean = CvInvoke.Mean(b0);
-            d0 = 0.66 * mean.V0;
-            d = 1.33 * mean.V0;
-            CvInvoke.Canny(b0, b1, d0, d);
-            b1.Save("temp_1.bmp");
+            
+            //byte[] data_2 = new byte[b0.Cols];
+            //b0.Row(b0.Rows/2).CopyTo(data_2);
         }
     }
 }

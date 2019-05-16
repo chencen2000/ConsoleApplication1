@@ -35,8 +35,9 @@ namespace ConsoleApplication1
             else
             {
                 //test();
-                //test_svm();
-                sample_device(_args.Parameters);
+                test_svm();
+                //sample_device(_args.Parameters);
+                //test_knn();
             }
         }
         static void train(System.Collections.Specialized.StringDictionary args)
@@ -375,6 +376,28 @@ namespace ConsoleApplication1
         }
         static void test_knn()
         {
+            Matrix<float> data;
+            Matrix<int> response;
+            ReadColorData(out data, out response);
+            using (KNearest knn = new KNearest())
+            {
+                knn.DefaultK = 3;
+                knn.IsClassifier = true;
+                bool ok = knn.Train(data, Emgu.CV.ML.MlEnum.DataLayoutType.RowSample, response);
+                if (ok)
+                {
+                    knn.Save("knn.xml");
+                    //int cols = data.Cols;
+                    //Matrix<float> sample = new Matrix<float>(1, cols);
+                    Matrix<float> sample;
+                    test_data(out sample);
+                    float r = knn.Predict(sample);
+                }
+            }
+
+        }
+        static void test_knn_1()
+        {
             //Regex r = new Regex(@"^Color Temp: (\d+) K - Lux: (\d+) - R: (\d+) G: (\d+) B: (\d+) Rr: (\d+) Gr: (\d+) Br: (\d+) C: (\d+)\s*$");
             //string[] lines = System.IO.File.ReadAllLines(@"data\test.txt");
             //foreach(string s in lines)
@@ -427,6 +450,7 @@ namespace ConsoleApplication1
         }
         static private void test_data(out Matrix<float> data)
         {
+            /*
             string raw_data = "x,y,w,t,p,f,c,n,w,e,e,s,y,w,w,p,w,o,p,k,s,g";
             int varCount = raw_data.Split(',').Length ;
             data = new Matrix<float>(1, varCount);
@@ -434,6 +458,39 @@ namespace ConsoleApplication1
             for (int i = 0; i < values.Length; i++)
             {
                 data[0, i] = System.Convert.ToByte(System.Convert.ToChar(values[i]));
+            }*/
+            string raw_data = "3476,645,1602,1145,877,3647,112,80,61";
+            int varCount = raw_data.Split(',').Length;
+            data = new Matrix<float>(1, varCount);
+            string[] values = raw_data.Split(',');
+            for (int i = 0; i < values.Length; i++)
+            {
+                int a;
+                if (Int32.TryParse(values[i], out a))
+                    data[0, i] = a;
+            }
+            
+        }
+        static private void ReadColorData(out Matrix<float> data, out Matrix<int> label)
+        {
+            string[] rows = System.IO.File.ReadAllLines(@"data\color_sample.txt");
+            int varCount = rows[0].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Length - 1;
+            int samples = rows.Length;
+            data = new Matrix<float>(samples, varCount);
+            label = new Matrix<int>(samples, 1);
+            int idx = 0;
+            foreach(string row in rows)
+            {
+                int i;
+                string[] values = row.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                if (Int32.TryParse(values[0], out i))
+                    label[idx, 0] = i;
+                for(int j=1; j < values.Length; j++)
+                {
+                    if (Int32.TryParse(values[j], out i))
+                        data[idx, j - 1] = i;
+                }
+                idx++;
             }
         }
         static private void ReadMushroomData(out Matrix<float> data, out Matrix<float> response)
@@ -473,6 +530,32 @@ namespace ConsoleApplication1
             }
         }
         static void test_svm()
+        {
+            Matrix<float> data;
+            Matrix<int> response;
+            ReadColorData(out data, out response);
+
+            using (SVM model = new SVM())
+            {
+                //model.KernelType = SVM.SvmKernelType.Linear;
+                model.SetKernel(SVM.SvmKernelType.Linear);
+                model.Type = SVM.SvmType.CSvc;
+                model.C = 1;
+                model.TermCriteria = new Emgu.CV.Structure.MCvTermCriteria(100, 0.00001);
+
+                //SVMParams p = new SVMParams();
+                //p.KernelType = Emgu.CV.ML.MlEnum.SVM_KERNEL_TYPE.LINEAR;
+                //p.SVMType = Emgu.CV.ML.MlEnum.SVM_TYPE.C_SVC;
+                //p.C = 1;
+                //p.TermCrit = new MCvTermCriteria(100, 0.00001);
+                bool ok = model.Train(data, Emgu.CV.ML.MlEnum.DataLayoutType.RowSample, response);
+                Matrix<float> sample;
+                test_data(out sample);
+                float r = model.Predict(sample);
+
+            }
+        }
+        static void test_svm_1()
         {
             Matrix<float> data;
             Matrix<int> response;
