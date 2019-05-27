@@ -1,0 +1,67 @@
+﻿[
+  {
+    "model": "APLSE",
+    "height": 138.1,
+    "width": 58.6
+  },
+  {
+    "model": "APL6",
+    "height": 138.1,
+    "width": 67.0
+  },
+  {
+    "model": "APL6P",
+    "height": 158.1,
+    "width": 77.8
+  },
+  {
+    "model": "APL6S",
+    "height": 138.3,
+    "width": 67.1
+  },
+  {
+    "model": "APL6SP",
+    "height": 158.2,
+    "width": 77.9
+  },
+  {
+    "model": "APL7",
+    "height": 138.3,
+    "width": 67.1
+  },
+  {
+    "model": "APL7P",
+    "height": 158.2,
+    "width": 77.9
+  },
+  {
+    "model": "APL8",
+    "height": 158.2,
+    "width": 67.3
+  },
+  {
+    "model": "APL8P",
+    "height": 158.4,
+    "width": 78.1
+  },
+  {
+    "model": "APLX",
+    "height": 143.6,
+    "width": 70.9
+  },
+  {
+    "model": "APLXR",
+    "height": 150.9,
+    "width": 75.7
+  },
+  {
+    "model": "APLXS",
+    "height": 143.6,
+    "width": 70.9
+  },
+  {
+    "model": "APLXSMAX",
+    "height": 157.5,
+    "width": 77.4
+  }
+]

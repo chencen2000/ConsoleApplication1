@@ -18,6 +18,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Tesseract;
+using System.Xml;
 
 namespace ConsoleApplication1
 {
@@ -25,6 +26,10 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
+            test_get_size();
+            //test_canny();
+            //test_find_lines();
+            //test4();
             //get_all_back_images();
             //test_edge_detect_1();
             //check_apple_logo();
@@ -39,7 +44,7 @@ namespace ConsoleApplication1
             //find_focused_item();
             //test_3();
             //test_1();
-            test2();
+            //test2();
             //test();
             //test_surf();
             //Image<Bgra, byte> img1 = new Image<Bgra, byte>(@"C:\Users\qa\Desktop\picture\menu_1.jpg");
@@ -880,7 +885,7 @@ namespace ConsoleApplication1
         }
         static void test2()
         {
-            string s = @"C:\Tools\avia\images\test\AP001_image.bmp";
+            string s = @"C:\Tools\avia\A07- NEW2.4.3.3\Allmodels\M0__VZW__FD0401\work_station_6\image.bmp";
             Mat b0 = CvInvoke.Imread(s, ImreadModes.Grayscale);
             Mat b1 = new Mat();
             
@@ -893,11 +898,254 @@ namespace ConsoleApplication1
             Mat abs_grad_y = new Mat();
             CvInvoke.ConvertScaleAbs(dx, abs_grad_x, 1, 0);
             CvInvoke.ConvertScaleAbs(dy, abs_grad_y, 1, 0);
-            CvInvoke.AddWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, b1);
-            b1.Save("temp_1.bmp");
-            
+            //CvInvoke.AddWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, b1);
+            //CvInvoke.Threshold(b1, b1, 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
+            abs_grad_x.Save("temp_1.bmp");
+            abs_grad_y.Save("temp_2.bmp");
+
+            Image<Gray, byte> i_x = auto_canny(abs_grad_x.ToImage<Gray, Byte>());
+            Image<Gray, byte> i_y = auto_canny(abs_grad_y.ToImage<Gray, Byte>());
+            i_x.Save("temp_3.bmp");
+            i_y.Save("temp_4.bmp");
+
             //byte[] data_2 = new byte[b0.Cols];
             //b0.Row(b0.Rows/2).CopyTo(data_2);
+            //LineSegment2D[] lines = CvInvoke.HoughLinesP(b1, 1, Math.PI / 180, 100, 1000, 10);
+
+        }
+        static void test4()
+        {
+            string sfolder = @"C:\Tools\avia\A07- NEW2.4.3.3\Allmodels\M0__VZW__FD0401\work_station_6";
+            XmlDocument doc = new XmlDocument();
+            try
+            {
+                doc.Load(System.IO.Path.Combine(sfolder, "layout.xml"));
+                if (doc.DocumentElement != null)
+                {
+                    XmlNodeList nlist = doc.DocumentElement.SelectNodes("//region");
+                    XmlNode n = nlist[0];
+                    string s = n["center"]?.InnerText;
+                    string[] ss = s.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    Point c = new Point();
+                    double v;
+                    if(double.TryParse(ss[0],out v))
+                    {
+                        c.X = (int)v;
+                    }
+                    if (double.TryParse(ss[1], out v))
+                    {
+                        c.Y = (int)v;
+                    }
+                    s = n["width"]?.InnerText;
+                    int i;
+                    Size sz = new Size();
+                    if(Int32.TryParse(s,out i))
+                    {
+                        sz.Width = i;
+                    }
+                    s = n["height"]?.InnerText;
+                    if (Int32.TryParse(s, out i))
+                    {
+                        sz.Height= i;
+                    }
+                    Size sz1 = new Size();
+                    sz1.Width = sz.Width / 2;
+                    sz1.Height = sz.Height / 2;
+                    c = Point.Subtract(c, sz1);
+                    Rectangle r = new Rectangle(c, sz);
+
+                    Mat b = CvInvoke.Imread(System.IO.Path.Combine(sfolder, "image.bmp"), ImreadModes.Grayscale);
+                    Image<Gray, Byte> img = b.ToImage<Gray, Byte>();
+                    img.GetSubRect(r).Save("temp_1.bmp");
+                    //b1.Save("temp_1.bmp");
+                }
+            }
+            catch (Exception) { }
+        }
+        static int median_image(Image<Gray,Byte> img)
+        {
+            MCvScalar mean = new MCvScalar();
+            MCvScalar stddev = new MCvScalar();
+            int median = 0;
+            CvInvoke.MeanStdDev(img, ref mean, ref stddev);
+            DenseHistogram hist = new DenseHistogram(256, new RangeF(0f, 255f));
+            hist.Calculate(new Image<Gray, Byte>[] { img }, true, null);
+            float[] bins = hist.GetBinValues();
+            int total = img.Width * img.Height;
+            int cnt = 0;
+            for(int i=0; i< bins.Length; i++)
+            {
+                cnt += (int)bins[i];
+                if (cnt > total / 2)
+                {
+                    median = i;
+                    break;
+                }
+            }
+            return median;
+        }
+        static void test_find_lines()
+        {
+            Mat b0 = CvInvoke.Imread("sample_1.bmp");
+            Image<Bgr, Byte> lineImage = b0.ToImage<Bgr, Byte>().CopyBlank();
+            Image<Gray,Byte> b1 = b0.ToImage<Gray, Byte>();
+            double otsu = CvInvoke.Threshold(b1, new Mat(), 7, 255, ThresholdType.Binary | ThresholdType.Otsu);
+            //b1.Save("temp_1.bmp");
+            int med = median_image(b1);
+            double sigma = 0.33;
+            double lower = Math.Max(0, (1.0 - sigma) * med);
+            double upper = Math.Min(255, (1.0 + sigma) * med);
+            CvInvoke.Canny(b1, b1, lower, upper);
+            b1.Save("temp_2.bmp");
+            LineSegment2D[] lines = CvInvoke.HoughLinesP(b1, 1, Math.PI / 180, 10, 100, 10);
+
+            if (lines.Length > 0)
+            {
+                foreach (LineSegment2D line in lines)
+                    lineImage.Draw(line, new Bgr(Color.Green), 2);
+                lineImage.Save("temp_2.bmp");
+            }
+        }
+        static Image<Gray, Byte> auto_canny(Image<Gray,Byte> src, double sigma=0.25)
+        {
+            Mat m = new Mat();
+            double otsu = CvInvoke.Threshold(src, m, 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
+            double lower = Math.Max(0, (1.0 - sigma) * otsu);
+            double upper = Math.Min(255, (1.0 + sigma) * otsu);
+            CvInvoke.Canny(src, m, lower, upper);
+            return m.ToImage<Gray,Byte>();
+        }
+        static void test_canny()
+        {
+            double resz = 1.0;
+            Mat b0 = CvInvoke.Imread(@"C:\Tools\avia\A07- NEW2.4.3.3\Allmodels\M0__VZW__FD0203\work_station_6\image.bmp");
+            Image<Gray, Byte> img = b0.ToImage<Gray, Byte>().Resize(resz, Inter.Cubic);
+            //CvInvoke.GaussianBlur(img, img, new Size(3, 3), 0);            
+            double otsu = CvInvoke.Threshold(img, new Mat(), 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
+            double sigma = 0.25;
+            double lower = Math.Max(0, (1.0 - sigma) * otsu);
+            double upper = Math.Min(255, (1.0 + sigma) * otsu);
+            CvInvoke.Canny(img, img, lower, upper);
+            img.Save("temp_1.bmp");
+            // method 1:
+            if (false)
+            {
+                LineSegment2D[] lines = CvInvoke.HoughLinesP(img, 1, Math.PI / 180, 100, 200 * resz, 20 * resz);
+                if (lines.Length > 0)
+                {
+                    List<int> x = new List<int>();
+                    List<int> y = new List<int>();
+                    LineSegment2D h_line = new LineSegment2D(new Point(0, 0), new Point(100, 0));
+                    Image<Bgr, Byte> lineImage = b0.ToImage<Bgr, Byte>().Resize(resz, Inter.Cubic).CopyBlank();
+                    foreach (LineSegment2D line in lines)
+                    {
+                        lineImage.Draw(line, new Bgr(Color.Green), 2);
+                        double a = h_line.GetExteriorAngleDegree(line);
+                        Program.logIt($"angle: {a}");
+                        if (Math.Abs(a - 0) < 10)
+                        {
+                            y.Add(line.P1.Y);
+                        }
+                        else if (Math.Abs(Math.Abs(a) - 90) < 10)
+                        {
+                            x.Add(line.P1.X);
+                        }
+                    }
+                    Size sz = new Size();
+                    VectorOfInt voi = new VectorOfInt(x.ToArray());
+                    double maxV;
+                    double minV;
+                    int[] maxI = new int[1];
+                    int[] minI = new int[1];
+                    CvInvoke.MinMaxIdx(voi, out minV, out maxV, minI, maxI);
+                    sz.Width = (int)(maxV - minV);
+                    voi = new VectorOfInt(y.ToArray());
+                    CvInvoke.MinMaxIdx(voi, out minV, out maxV, minI, maxI);
+                    sz.Height = (int)(maxV - minV);
+                    Single mmpd = 0.0139339f;
+                    SizeF rsz = new SizeF(mmpd * sz.Height, mmpd * sz.Width);
+                    Program.logIt($"Size: {sz}, in {rsz} mm ");
+
+                    lineImage.Save("temp_2.bmp");
+                }
+            }
+
+            //method 2:
+            if (true)
+            {
+                Rectangle roi = new Rectangle();
+                using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+                {
+                    CvInvoke.FindContours(img, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                    int count = contours.Size;
+                    for (int i = 0; i < count; i++)
+                    {
+                        double a1 = CvInvoke.ContourArea(contours[i], false);
+                        //if (a1 > 1)
+                        {
+                            Program.logIt($"area: {a1}");
+                            Rectangle r = CvInvoke.BoundingRectangle(contours[i]);
+                            if (roi.IsEmpty) roi = r;
+                            else roi = Rectangle.Union(roi, r);
+                        }
+                    }
+                }
+                img.GetSubRect(roi).Save("temp_2.bmp");
+                Program.logIt($"Size: {roi}");
+            }
+        }
+        static void test_get_size()
+        {
+            Single mmpp = 0.0139339f;
+            string sfloder = @"C:\Tools\avia\A07- NEW2.4.3.3\Allmodels";
+            string targetFolder = @"C:\Tools\logs\avia";
+            List<string> all_bmps = new List<string>();
+            // get all image.bmp
+            foreach(string s in System.IO.Directory.GetDirectories(sfloder))
+            {
+                string fn = System.IO.Path.Combine(s, "work_station_6", "image.bmp");
+                if (System.IO.File.Exists(fn))
+                    all_bmps.Add(fn);
+            }
+            // get size for each images            
+            foreach(string fn in all_bmps)
+            {
+                string model = System.IO.Path.GetFileNameWithoutExtension( System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(fn)));
+                Mat b0 = CvInvoke.Imread(fn);
+                Image<Gray, Byte> img = b0.ToImage<Gray, Byte>();
+                CvInvoke.GaussianBlur(img, img, new Size(5, 5), 0);
+                double otsu = CvInvoke.Threshold(img, new Mat(), 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
+                double sigma = 0.25;
+                double lower = Math.Max(0, (1.0 - sigma) * otsu);
+                double upper = Math.Min(255, (1.0 + sigma) * otsu);
+                CvInvoke.Canny(img, img, lower, upper);
+                img.Save(System.IO.Path.Combine(targetFolder, $"{model}_canny.bmp"));
+                if (true)
+                {
+                    Rectangle roi = new Rectangle();
+                    using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+                    {
+                        CvInvoke.FindContours(img, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                        int count = contours.Size;
+                        for (int i = 0; i < count; i++)
+                        {
+                            double a1 = CvInvoke.ContourArea(contours[i], false);
+                            //if (a1 > 1)
+                            {
+                                //Program.logIt($"area: {a1}");
+                                Rectangle r = CvInvoke.BoundingRectangle(contours[i]);
+                                if (roi.IsEmpty) roi = r;
+                                else roi = Rectangle.Union(roi, r);
+                            }
+                        }
+                    }
+                    img.GetSubRect(roi).Save(System.IO.Path.Combine(targetFolder, $"{model}_roi.bmp"));
+                    //img.GetSubRect(roi).Save($"{model}_roi.bmp");
+                    Single w = mmpp * roi.Width;
+                    Single h = mmpp * roi.Height;
+                    Program.logIt($"{model}: Size: {roi}, in mm {h}x{w}");
+                }
+            }
         }
     }
 }
