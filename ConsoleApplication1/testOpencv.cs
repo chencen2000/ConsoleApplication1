@@ -26,7 +26,7 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            test_get_size();
+            test_get_size_1();
             //test_canny();
             //test_find_lines();
             //test4();
@@ -1094,6 +1094,55 @@ namespace ConsoleApplication1
                 Program.logIt($"Size: {roi}");
             }
         }
+        static List<Dictionary<string, object>> verizon_db = null;
+        static void load_verizon_data()
+        {
+            if (System.IO.File.Exists(@"data\verizon_db.json"))
+            {
+                verizon_db = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(System.IO.File.ReadAllText(@"data\verizon_db.json"));
+            }
+        }
+        static Dictionary<string,object> find_device_by_last_4_digit(string last_4_digit)
+        {
+            Dictionary<string, object> ret = null;
+            try
+            {
+                Dictionary<string, object> r = verizon_db.SingleOrDefault(x => (x["IMEI"] as string).EndsWith(last_4_digit));
+                ret = r;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Program.logIt($"{ex.Message}: {last_4_digit}");
+            }
+            return ret;
+        }
+        static Dictionary<string, object>[] load_image_data(string root)
+        {
+            List<Dictionary<string, object>> db = new List<Dictionary<string, object>>();
+            foreach (string s in System.IO.Directory.GetFiles(root, "*.1.bmp", SearchOption.AllDirectories))
+            {
+                string last_4_digit = System.IO.Path.GetFileNameWithoutExtension(s).Substring(0, 4);
+                Dictionary<string, object> r = find_device_by_last_4_digit(last_4_digit);
+                if (r != null)
+                {
+                    r.Add("fn", s);
+                    db.Add(r);
+                }
+            }
+            return db.ToArray();
+        }
+        static void test_get_size_1()
+        {
+            Single mmpp = 0.0139339f;
+            load_verizon_data();
+            Dictionary<string, object>[] data = load_image_data(@"C:\Tools\avia\Recog source");
+            foreach(Dictionary<string,object> r in data)
+            {
+                SizeF sz = test_get_size_one(r["fn"] as string);
+                int l = msml.predict_test(sz.Height,sz.Width);
+                Program.logIt($"imei={r["IMEI"]}, model={r["Model"]}, color={r["Color"]}, size={sz}, predict={l}");
+            }
+        }
         static void test_get_size()
         {
             Single mmpp = 0.0139339f;
@@ -1108,6 +1157,7 @@ namespace ConsoleApplication1
                     all_bmps.Add(fn);
             }
             // get size for each images            
+            List<Dictionary<string, object>> db = new List<Dictionary<string, object>>();
             foreach(string fn in all_bmps)
             {
                 string model = System.IO.Path.GetFileNameWithoutExtension( System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(fn)));
@@ -1143,9 +1193,76 @@ namespace ConsoleApplication1
                     //img.GetSubRect(roi).Save($"{model}_roi.bmp");
                     Single w = mmpp * roi.Width;
                     Single h = mmpp * roi.Height;
-                    Program.logIt($"{model}: Size: {roi}, in mm {h}x{w}");
+                    Dictionary<string, object> record = new Dictionary<string, object>();
+                    record.Add("label", "0");
+                    record.Add("width", h);
+                    record.Add("height", w);
+                    db.Add(record);
+                    int l = msml.predict_test(w, h);
+                    Program.logIt($"{model}: Size: {roi}, in mm {h}x{w} (predict={l})");
                 }
             }
+            {
+                string s = Newtonsoft.Json.JsonConvert.SerializeObject(db);
+                Program.logIt($"dump: {Environment.NewLine}{s}");
+            }
+        }
+        static SizeF test_get_size_one(string filename)
+        {
+            SizeF ret = new SizeF();
+            Single mmpp = 0.0139339f;
+            string targetFolder = @"C:\Tools\logs\avia";
+            // get size for each images            
+            List<Dictionary<string, object>> db = new List<Dictionary<string, object>>();
+            if(System.IO.File.Exists(filename))
+            {
+                Mat b0 = CvInvoke.Imread(filename);
+                Image<Gray, Byte> img = b0.ToImage<Gray, Byte>();
+                CvInvoke.GaussianBlur(img, img, new Size(5, 5), 0);
+                double otsu = CvInvoke.Threshold(img, new Mat(), 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
+                double sigma = 0.25;
+                double lower = Math.Max(0, (1.0 - sigma) * otsu);
+                double upper = Math.Min(255, (1.0 + sigma) * otsu);
+                CvInvoke.Canny(img, img, lower, upper);
+                img.Save(System.IO.Path.Combine(targetFolder, $"{System.IO.Path.GetFileNameWithoutExtension(filename)}_canny.bmp"));
+                if (true)
+                {
+                    Rectangle roi = new Rectangle();
+                    using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+                    {
+                        CvInvoke.FindContours(img, contours, null, RetrType.External, ChainApproxMethod.ChainApproxNone);
+                        int count = contours.Size;
+                        for (int i = 0; i < count; i++)
+                        {
+                            double a1 = CvInvoke.ContourArea(contours[i], false);
+                            //if (a1 > 1)
+                            {
+                                //Program.logIt($"area: {a1}");
+                                Rectangle r = CvInvoke.BoundingRectangle(contours[i]);
+                                if (roi.IsEmpty) roi = r;
+                                else roi = Rectangle.Union(roi, r);
+                            }
+                        }
+                    }
+                    img.GetSubRect(roi).Save(System.IO.Path.Combine(targetFolder, $"{System.IO.Path.GetFileNameWithoutExtension(filename)}_roi.bmp"));
+                    //img.GetSubRect(roi).Save($"{model}_roi.bmp");
+                    Single w = mmpp * roi.Width;
+                    Single h = mmpp * roi.Height;
+                    Dictionary<string, object> record = new Dictionary<string, object>();
+                    record.Add("label", "0");
+                    record.Add("width", h);
+                    record.Add("height", w);
+                    db.Add(record);
+                    //int l = msml.predict_test(w, h);
+                    //Program.logIt($"{System.IO.Path.GetFileNameWithoutExtension(filename)}: Size: {roi}, in mm {h}x{w} (predict={l})");
+                    ret = new SizeF(h, w);
+                }
+            }
+            //{
+            //    string s = Newtonsoft.Json.JsonConvert.SerializeObject(db);
+            //    Program.logIt($"dump: {Environment.NewLine}{s}");
+            //}
+            return ret;
         }
     }
 }

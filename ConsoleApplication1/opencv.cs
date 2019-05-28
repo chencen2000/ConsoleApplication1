@@ -24,7 +24,7 @@ namespace ConsoleApplication1
             //test_haar();
             //test_cornet();
             //test_match_shape();
-            test_bg();
+            //test_bg();
         }
         static void test_bg()
         {
@@ -48,7 +48,7 @@ namespace ConsoleApplication1
                 CvInvoke.Imshow("b", fgMask);
                 kb = CvInvoke.WaitKey(10);
             }
-            
+
             /*
             bg.History = 3;
             Mat fgMask = new Mat();
@@ -250,5 +250,6 @@ namespace ConsoleApplication1
             var b = img.ToImage<Bgr, Byte>();
             var email_rect = haar_email.DetectMultiScale(b, 1.1);
         }
+
     }
 }

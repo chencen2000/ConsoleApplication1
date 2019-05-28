@@ -40,7 +40,7 @@ namespace ConsoleApplication1
             //    e.Set();
             //}
             //catch (Exception ex) { }
-            test_xml();
+            //test_xml();
         }
         static void test_xml()
         {
