@@ -203,7 +203,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="data\iphone_size_trainingdata.json" />
+    <None Include="data\iphone_size_trainingdata.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="data\iPhonsSize.json" />
     <None Include="data\model.json" />
     <None Include="data\verizon_db.json">

@@ -1018,9 +1018,9 @@ namespace ConsoleApplication1
         static void test_canny()
         {
             double resz = 1.0;
-            Mat b0 = CvInvoke.Imread(@"C:\Tools\avia\A07- NEW2.4.3.3\Allmodels\M0__VZW__FD0203\work_station_6\image.bmp");
-            Image<Gray, Byte> img = b0.ToImage<Gray, Byte>().Resize(resz, Inter.Cubic);
-            //CvInvoke.GaussianBlur(img, img, new Size(3, 3), 0);            
+            Mat b0 = CvInvoke.Imread(@"C:\Tools\avia\Recog source\iphoneX SpaceGray_img\1896.6.bmp");            
+            Image<Gray, Byte> img = b0.ToImage<Gray, Byte>().GetSubRect(new Rectangle(new Point(5,5), new Size(b0.Width-10,b0.Height-10))).Resize(resz, Inter.Cubic);
+            CvInvoke.GaussianBlur(img, img, new Size(3, 3), 0);
             double otsu = CvInvoke.Threshold(img, new Mat(), 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
             double sigma = 0.25;
             double lower = Math.Max(0, (1.0 - sigma) * otsu);
@@ -1081,10 +1081,15 @@ namespace ConsoleApplication1
                     for (int i = 0; i < count; i++)
                     {
                         double a1 = CvInvoke.ContourArea(contours[i], false);
-                        //if (a1 > 1)
+                        //if (a1 > 0)
                         {
-                            Program.logIt($"area: {a1}");
+                            //Program.logIt($"area: {a1}");
                             Rectangle r = CvInvoke.BoundingRectangle(contours[i]);
+                            Program.logIt($"area: {a1} rect={r}");
+                            if (r.Y == 0)
+                            {
+                                int s = r.Width * r.Height;
+                            }
                             if (roi.IsEmpty) roi = r;
                             else roi = Rectangle.Union(roi, r);
                         }
@@ -1125,7 +1130,17 @@ namespace ConsoleApplication1
                 Dictionary<string, object> r = find_device_by_last_4_digit(last_4_digit);
                 if (r != null)
                 {
-                    r.Add("fn", s);
+                    r["fn"] = s;
+                    db.Add(r);
+                }
+            }
+            foreach (string s in System.IO.Directory.GetFiles(root, "*.6.bmp", SearchOption.AllDirectories))
+            {
+                string last_4_digit = System.IO.Path.GetFileNameWithoutExtension(s).Substring(0, 4);
+                Dictionary<string, object> r = find_device_by_last_4_digit(last_4_digit);
+                if (r != null)
+                {
+                    r["fn"]= s;
                     db.Add(r);
                 }
             }
@@ -1134,6 +1149,7 @@ namespace ConsoleApplication1
         static void test_get_size_1()
         {
             Single mmpp = 0.0139339f;
+            List<Dictionary<string, object>> db = new List<Dictionary<string, object>>();
             load_verizon_data();
             Dictionary<string, object>[] data = load_image_data(@"C:\Tools\avia\Recog source");
             foreach(Dictionary<string,object> r in data)
@@ -1141,6 +1157,15 @@ namespace ConsoleApplication1
                 SizeF sz = test_get_size_one(r["fn"] as string);
                 int l = msml.predict_test(sz.Height,sz.Width);
                 Program.logIt($"imei={r["IMEI"]}, model={r["Model"]}, color={r["Color"]}, size={sz}, predict={l}");
+                Dictionary<string, object> d = new Dictionary<string, object>();
+                d.Add("label", "4");
+                d.Add("height", sz.Height);
+                d.Add("width", sz.Width);
+                db.Add(d);
+            }
+            {
+                string s = Newtonsoft.Json.JsonConvert.SerializeObject(db);
+                Program.logIt(s);
             }
         }
         static void test_get_size()
@@ -1217,7 +1242,8 @@ namespace ConsoleApplication1
             if(System.IO.File.Exists(filename))
             {
                 Mat b0 = CvInvoke.Imread(filename);
-                Image<Gray, Byte> img = b0.ToImage<Gray, Byte>();
+                //Image<Gray, Byte> img = b0.ToImage<Gray, Byte>();
+                Image<Gray, Byte> img = b0.ToImage<Gray, Byte>().GetSubRect(new Rectangle(new Point(5, 5), new Size(b0.Width - 10, b0.Height - 10)));
                 CvInvoke.GaussianBlur(img, img, new Size(5, 5), 0);
                 double otsu = CvInvoke.Threshold(img, new Mat(), 0, 255, ThresholdType.Binary | ThresholdType.Otsu);
                 double sigma = 0.25;

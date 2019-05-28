@@ -17,7 +17,7 @@ namespace ConsoleApplication1
         static void test()
         {
             // load data
-            string s = System.IO.File.ReadAllText(@"C:\Tools\avia\iphone_size_trainingdata.json");
+            string s = System.IO.File.ReadAllText(@"data\iphone_size_trainingdata.json");
             List<Dictionary<string, object>> db = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(s);
             test_svm(db);
         }
@@ -53,7 +53,7 @@ namespace ConsoleApplication1
                 data[i, 0] = (float)((double)r["height"]);
                 data[i, 1] = (float)((double)r["width"]);
                 int v;
-                if(Int32.TryParse(r["label"].ToString(), out v))
+                if (Int32.TryParse(r["label"].ToString(), out v))
                 {
                     label[i, 0] = v;
                 }
