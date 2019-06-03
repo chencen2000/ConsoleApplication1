@@ -57,7 +57,7 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>ConsoleApplication1.testOpencv</StartupObject>
+    <StartupObject>ConsoleApplication1.msml</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Accord.Controls, Version=3.8.0.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">

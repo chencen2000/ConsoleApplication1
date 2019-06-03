@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace ConsoleApplication1
@@ -12,7 +13,53 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            test();
+            test_1();
+        }
+        static void test_1()
+        {
+            Regex r = new Regex(@"Flaws:(.+)Count:(.+)AA Surface:(.+)A Surface:(.+)B Surface:(.+)C Surface:(.+)Grade = (.+)", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            string s = System.IO.File.ReadAllText(@"C:\projects\avia\logfiles\classify-0028.txt");
+            Match m = r.Match(s);
+            if (m.Success)
+            {
+                string flaw_str = m.Groups[1].Value;
+                string count_str = m.Groups[2].Value;
+                string AA_str = m.Groups[3].Value;
+                string A_str = m.Groups[4].Value;
+                string B_str = m.Groups[5].Value;
+                string C_str = m.Groups[6].Value;
+                string Grade_str = m.Groups[7].Value;
+                // flaw
+                if (!string.IsNullOrEmpty(flaw_str))
+                {
+                    Regex r1 = new Regex(@"flaw = (.+), region = (.+), surface = (.+), sort = (.+), length = (.+) mm, width = (.+) mm, area = (.+) mm", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+                    var ms = r1.Matches(flaw_str);
+                    foreach(Match m1 in ms)
+                    {
+
+                    }
+                }
+                // count
+                if (!string.IsNullOrEmpty(count_str))
+                {
+                    Regex r1 = new Regex(@"(.+) = (.+)", RegexOptions.Multiline);
+                    var ms = r1.Matches(count_str);
+                    foreach (Match m1 in ms)
+                    {
+
+                    }
+                }
+                // surface
+                if (!string.IsNullOrEmpty(AA_str))
+                {
+                    Regex r1 = new Regex(@"Totoal number of major on (?'major'\w+) = (.+)|Totoal number on (?'total'\w+) = (.+)");
+                    var ms = r1.Matches(AA_str);
+                    foreach (Match m1 in ms)
+                    {
+
+                    }
+                }
+            }
         }
         static void test()
         {
